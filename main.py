@@ -132,7 +132,8 @@ def generate_imposition_pdf(req: ImpositionRequest) -> bytes:
             img_bytes = base64.b64decode(data)
             img_buf = io.BytesIO(img_bytes)
 
-            # Draw image clipped to circle
+            # Draw image clipped to circle (saveState/restoreState isolates each clip)
+            c.saveState()
             p = c.beginPath()
             p.circle(cx, cy_rl, r)
             c.clipPath(p, stroke=0, fill=0)
@@ -143,6 +144,7 @@ def generate_imposition_pdf(req: ImpositionRequest) -> bytes:
                 preserveAspectRatio=True,
                 mask="auto",
             )
+            c.restoreState()
 
         elif item.logo_type == "application/pdf":
             # For PDF logos: embed as XObject (preserves vector data)
