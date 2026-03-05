@@ -10,6 +10,7 @@ const ROWS = 5;
 const H_GAP = (SHEET_WIDTH_MM - COLS * MAGNET_DIAMETER_MM) / (COLS + 1);
 const V_GAP = (SHEET_HEIGHT_MM - ROWS * MAGNET_DIAMETER_MM) / (ROWS + 1);
 const SCALE_INIT = 1.3;
+const BACKEND_URL = "http://localhost:8000";
 
 const generateSlots = () => {
   const slots = [];
@@ -109,10 +110,51 @@ export default function ImpositionTool() {
   };
 
   const handleGenerate = async () => {
+    const filledSlots = slots.filter((s) => s.logo !== null);
+    if (filledSlots.length === 0) {
+      alert("Aucun logo placé sur le plateau.");
+      return;
+    }
+
     setGenerating(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    setGenerating(false);
-    alert("PDF généré !\n(Connecte le backend Python pour le vrai téléchargement)");
+    try {
+      const payload = {
+        logos: filledSlots.map((slot) => {
+          const logo = logos.find((l) => l.id === slot.logo);
+          return {
+            slot_id: slot.id,
+            cx_mm: slot.cx,
+            cy_mm: slot.cy,
+            logo_data: logo.dataUrl,
+            logo_type: logo.type,
+            logo_name: logo.name,
+          };
+        }),
+      };
+
+      const response = await fetch(`${BACKEND_URL}/generate-pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || "Erreur serveur");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `OLDA_Imposition_${filledSlots.length}_logos.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(`Erreur : ${e.message}`);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const logoMap = Object.fromEntries(logos.map((l) => [l.id, l]));
