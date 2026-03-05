@@ -5,7 +5,7 @@ const SHEET_HEIGHT_MM = 300;
 const MAGNET_DIAMETER_MM = 49;
 const MAGNET_RADIUS_MM = MAGNET_DIAMETER_MM / 2;
 const BLEED_MM = 3;
-const COLS = 11;
+const COLS = 10;
 const ROWS = 5;
 const H_GAP = (SHEET_WIDTH_MM - COLS * MAGNET_DIAMETER_MM) / (COLS + 1);
 const V_GAP = (SHEET_HEIGHT_MM - ROWS * MAGNET_DIAMETER_MM) / (ROWS + 1);
@@ -198,14 +198,14 @@ export default function ImpositionTool() {
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM + BLEED_MM}
                       fill="none"
                       stroke={isSelected ? "#0071e3" : isHovered ? "#4da3ff" : "#FFD700"}
-                      strokeWidth={isSelected ? 0.8 : 0.5}
-                      strokeDasharray="1.5 1"
-                      opacity={isSelected ? 1 : 0.65}
+                      strokeWidth={isSelected ? 1.2 : 0.8}
+                      strokeDasharray="2 1"
+                      opacity={isSelected ? 1 : 0.9}
                     />
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM}
-                      fill={logo ? "none" : isHovered ? "rgba(0,113,227,0.06)" : "rgba(0,0,0,0.02)"}
-                      stroke={isSelected ? "#0071e3" : isHovered ? "#4da3ff" : "#bbb"}
-                      strokeWidth={isSelected ? 0.7 : 0.3}
+                      fill={logo ? "none" : isHovered ? "rgba(0,113,227,0.12)" : "rgba(255,255,255,0.04)"}
+                      stroke={isSelected ? "#0071e3" : isHovered ? "#4da3ff" : "#888"}
+                      strokeWidth={isSelected ? 1 : 0.6}
                     />
                     {logo && !logo.type.includes("pdf") && (
                       <image href={logo.dataUrl}
@@ -218,7 +218,7 @@ export default function ImpositionTool() {
                       <text x={slot.cx} y={slot.cy + 1} textAnchor="middle" dominantBaseline="middle" fontSize="4" fill="#888">PDF</text>
                     )}
                     {!logo && (
-                      <circle cx={slot.cx} cy={slot.cy} r={0.7} fill={isHovered ? "#0071e3" : "#ccc"} />
+                      <circle cx={slot.cx} cy={slot.cy} r={1.2} fill={isHovered ? "#0071e3" : "#888"} />
                     )}
                     {/* Hit zone */}
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM + BLEED_MM}
