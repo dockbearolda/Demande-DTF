@@ -141,7 +141,7 @@ export default function ImpositionTool() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `OLDA_Imposition_${filledSlots.length}_logos.pdf`;
+      a.download = `OLDA_Imposition_${slots.filter(s => s.logo).length}_logos.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
