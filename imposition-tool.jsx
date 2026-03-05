@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 const SHEET_WIDTH_MM = 600;
 const SHEET_HEIGHT_MM = 300;
@@ -9,7 +9,7 @@ const COLS = 10;
 const ROWS = 5;
 const H_GAP = (SHEET_WIDTH_MM - COLS * MAGNET_DIAMETER_MM) / (COLS + 1);
 const V_GAP = (SHEET_HEIGHT_MM - ROWS * MAGNET_DIAMETER_MM) / (ROWS + 1);
-const SCALE = 1.3;
+const SCALE_INIT = 1.3;
 
 const generateSlots = () => {
   const slots = [];
@@ -32,10 +32,27 @@ export default function ImpositionTool() {
   const [selectedLogo, setSelectedLogo] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [scale, setScale] = useState(SCALE_INIT);
   const fileInputRef = useRef();
+  const canvasRef = useRef();
 
-  const sheetW = SHEET_WIDTH_MM * SCALE;
-  const sheetH = SHEET_HEIGHT_MM * SCALE;
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const compute = () => {
+      const pad = 48;
+      const scaleX = (el.clientWidth - pad) / SHEET_WIDTH_MM;
+      const scaleY = (el.clientHeight - pad) / SHEET_HEIGHT_MM;
+      setScale(Math.min(scaleX, scaleY));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const sheetW = SHEET_WIDTH_MM * scale;
+  const sheetH = SHEET_HEIGHT_MM * scale;
 
   const handleFiles = useCallback((files) => {
     Array.from(files).forEach((file) => {
@@ -179,7 +196,7 @@ export default function ImpositionTool() {
         </aside>
 
         {/* SHEET CANVAS */}
-        <main style={s.canvas}>
+        <main ref={canvasRef} style={s.canvas}>
           <div style={s.sheetLabel}>Planche Roland — {SHEET_WIDTH_MM} × {SHEET_HEIGHT_MM} mm</div>
           <div style={{ ...s.sheet, width: sheetW, height: sheetH }} onDragOver={(e) => e.preventDefault()}>
             <svg style={s.svg} width={sheetW} height={sheetH} viewBox={`0 0 ${SHEET_WIDTH_MM} ${SHEET_HEIGHT_MM}`}>
@@ -191,9 +208,23 @@ export default function ImpositionTool() {
                 return (
                   <g key={slot.id}>
                     <defs>
-                      <clipPath id={`clip-${slot.id}`}>
-                        <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM} />
-                      </clipPath>
+                      {logo && !logo.type.includes("pdf") && (
+                        <pattern
+                          id={`pat-${slot.id}`}
+                          patternUnits="userSpaceOnUse"
+                          x={slot.cx - MAGNET_RADIUS_MM}
+                          y={slot.cy - MAGNET_RADIUS_MM}
+                          width={MAGNET_DIAMETER_MM}
+                          height={MAGNET_DIAMETER_MM}
+                        >
+                          <image
+                            href={logo.dataUrl}
+                            width={MAGNET_DIAMETER_MM}
+                            height={MAGNET_DIAMETER_MM}
+                            preserveAspectRatio="xMidYMid meet"
+                          />
+                        </pattern>
+                      )}
                     </defs>
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM + BLEED_MM}
                       fill="none"
@@ -203,17 +234,14 @@ export default function ImpositionTool() {
                       opacity={isSelected ? 1 : 0.9}
                     />
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM}
-                      fill={logo ? "none" : isHovered ? "rgba(0,113,227,0.12)" : "rgba(255,255,255,0.04)"}
+                      fill={
+                        logo && !logo.type.includes("pdf")
+                          ? `url(#pat-${slot.id})`
+                          : isHovered ? "rgba(0,113,227,0.12)" : "rgba(255,255,255,0.04)"
+                      }
                       stroke={isSelected ? "#0071e3" : isHovered ? "#4da3ff" : "#888"}
                       strokeWidth={isSelected ? 1 : 0.6}
                     />
-                    {logo && !logo.type.includes("pdf") && (
-                      <image href={logo.dataUrl}
-                        x={slot.cx - MAGNET_RADIUS_MM} y={slot.cy - MAGNET_RADIUS_MM}
-                        width={MAGNET_DIAMETER_MM} height={MAGNET_DIAMETER_MM}
-                        clipPath={`url(#clip-${slot.id})`} preserveAspectRatio="xMidYMid meet"
-                      />
-                    )}
                     {logo && logo.type.includes("pdf") && (
                       <text x={slot.cx} y={slot.cy + 1} textAnchor="middle" dominantBaseline="middle" fontSize="4" fill="#888">PDF</text>
                     )}
