@@ -99,11 +99,9 @@ def build_spot_color(name: str, c: float, m: float, y: float, k: float):
 
 def generate_imposition_pdf(req: ImpositionRequest) -> bytes:
     """
-    Generates a multi-layer PDF with:
-      Layer 1: CMJN logos
-      Layer 2: CutContour (Spot Color) — circles with 3mm offset
-      Layer 3: RDG_WHITE (Spot Color) — white underbase circles
-      Layer 4: RDG_GLOSS (Spot Color) — varnish circles
+    Generates a 2-page PDF:
+      Page 1: Gabarit — tous les cercles vides (contour + CutContour), sans logos
+      Page 2: Logos — uniquement les images des logos clippées dans leurs cercles
     Returns raw PDF bytes.
     """
     buf = io.BytesIO()
@@ -115,89 +113,60 @@ def generate_imposition_pdf(req: ImpositionRequest) -> bytes:
     c.setTitle("OLDA Imposition — VersaWorks Ready")
     c.setAuthor("OLDA Studio")
 
-    # ReportLab coordinate system: origin at bottom-left
-    # Our coordinates: origin at top-left → flip Y
     def flip_y(cy_mm):
         return (req.sheet_height_mm - cy_mm) * mm
 
-    # ── Layer 1: CMJN Logos ────────────────────────────────────────────────
+    # ── Page 1 : Gabarit (cercles vides) ──────────────────────────────────
+    spot_cut = build_spot_color("CutContour", 0, 1.0, 1.0, 0)
+
     for item in req.logos:
         cx = item.cx_mm * mm
         cy_rl = flip_y(item.cy_mm)
         r = req.magnet_radius_mm * mm
+        r_cut = (req.magnet_radius_mm + req.bleed_mm) * mm
 
-        # Inner circle (white fill, gray stroke) — always drawn
+        # Cercle intérieur blanc avec contour gris
         c.setFillColorRGB(1, 1, 1)
         c.setStrokeColorRGB(0.55, 0.55, 0.6)
         c.setLineWidth(0.4)
         c.circle(cx, cy_rl, r, fill=1, stroke=1)
 
-        if item.logo_data and item.logo_type and item.logo_type.startswith("image/"):
-            header, data = item.logo_data.split(",", 1) if "," in item.logo_data else ("", item.logo_data)
-            img_bytes = base64.b64decode(data)
-            img_buf = io.BytesIO(img_bytes)
-            c.saveState()
-            p = c.beginPath()
-            p.circle(cx, cy_rl, r)
-            c.clipPath(p, stroke=0, fill=0)
-            c.drawImage(
-                img_buf,
-                cx - r, cy_rl - r,
-                width=r * 2, height=r * 2,
-                preserveAspectRatio=True,
-                mask="auto",
-            )
-            c.restoreState()
-
-        elif item.logo_data and item.logo_type == "application/pdf":
-            c.setFillColorRGB(0.4, 0.4, 0.4)
-            c.setFont("Helvetica", 6 * mm / 10)
-            c.drawCentredString(cx, cy_rl - 1 * mm, (item.logo_name or "PDF")[:20])
-
-        else:
-            # Empty slot — center dot
-            c.setFillColorRGB(0.5, 0.5, 0.55)
-            c.circle(cx, cy_rl, 0.6 * mm, fill=1, stroke=0)
-
-    # ── Layer 2: RDG_WHITE (white underbase) ──────────────────────────────
-    spot_white = build_spot_color("RDG_WHITE", 0, 0, 0, 0)
-    c.showPage()
-    c.setPageSize((page_w, page_h))
-
-    for item in req.logos:
-        cx = item.cx_mm * mm
-        cy_rl = flip_y(item.cy_mm)
-        r = req.magnet_radius_mm * mm
-        c.setFillColor(spot_white)
-        c.setStrokeColor(spot_white)
-        c.circle(cx, cy_rl, r, fill=1, stroke=0)
-
-    # ── Layer 3: RDG_GLOSS (varnish) ──────────────────────────────────────
-    spot_gloss = build_spot_color("RDG_GLOSS", 0, 0, 0, 0.05)
-    c.showPage()
-    c.setPageSize((page_w, page_h))
-
-    for item in req.logos:
-        cx = item.cx_mm * mm
-        cy_rl = flip_y(item.cy_mm)
-        r = req.magnet_radius_mm * mm
-        c.setFillColor(spot_gloss)
-        c.setStrokeColor(spot_gloss)
-        c.circle(cx, cy_rl, r, fill=1, stroke=0)
-
-    # ── Layer 4: CutContour (die-cut line) ────────────────────────────────
-    spot_cut = build_spot_color("CutContour", 0, 1.0, 1.0, 0)
-    c.showPage()
-    c.setPageSize((page_w, page_h))
-    c.setFillColor(colors.transparent)
-    c.setStrokeColor(spot_cut)
-    c.setLineWidth(0.25)
-
-    for item in req.logos:
-        cx = item.cx_mm * mm
-        cy_rl = flip_y(item.cy_mm)
-        r_cut = (req.magnet_radius_mm + req.bleed_mm + req.border_mm) * mm
+        # CutContour (cercle de découpe)
+        c.setFillColor(colors.transparent)
+        c.setStrokeColor(spot_cut)
+        c.setLineWidth(0.25)
         c.circle(cx, cy_rl, r_cut, fill=0, stroke=1)
+
+    # ── Page 2 : Logos uniquement ─────────────────────────────────────────
+    c.showPage()
+    c.setPageSize((page_w, page_h))
+
+    for item in req.logos:
+        if not item.logo_data or not item.logo_type:
+            continue
+        if not item.logo_type.startswith("image/"):
+            continue
+
+        cx = item.cx_mm * mm
+        cy_rl = flip_y(item.cy_mm)
+        r = req.magnet_radius_mm * mm
+
+        header, data = item.logo_data.split(",", 1) if "," in item.logo_data else ("", item.logo_data)
+        img_bytes = base64.b64decode(data)
+        img_buf = io.BytesIO(img_bytes)
+
+        c.saveState()
+        p = c.beginPath()
+        p.circle(cx, cy_rl, r)
+        c.clipPath(p, stroke=0, fill=0)
+        c.drawImage(
+            img_buf,
+            cx - r, cy_rl - r,
+            width=r * 2, height=r * 2,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+        c.restoreState()
 
     c.save()
     return buf.getvalue()
@@ -219,7 +188,7 @@ def merge_layers_with_pikepdf(pdf_bytes: bytes) -> bytes:
             meta["xmp:CreatorTool"] = "OLDA Imposition v1.0"
 
         # Name pages as layers
-        layer_names = ["CMJN_Logos", "RDG_WHITE", "RDG_GLOSS", "CutContour"]
+        layer_names = ["Gabarit", "Logos"]
         for i, page in enumerate(pdf.pages):
             if i < len(layer_names):
                 # Add page label hint for VersaWorks

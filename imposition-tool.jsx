@@ -234,20 +234,9 @@ export default function ImpositionTool() {
         {/* SHEET CANVAS */}
         <main ref={canvasRef} style={s.canvas}>
           <div style={s.sheetLabel}>Planche Roland — {SHEET_WIDTH_MM} × {SHEET_HEIGHT_MM} mm</div>
-          <div style={{ ...s.sheet, width: sheetW, height: sheetH }} onDragOver={(e) => e.preventDefault()}>
+          <div style={{ ...s.sheet, width: sheetW, height: sheetH, position: "relative" }} onDragOver={(e) => e.preventDefault()}>
             <svg style={s.svg} width={sheetW} height={sheetH} viewBox={`0 0 ${SHEET_WIDTH_MM} ${SHEET_HEIGHT_MM}`}>
               <rect x={0} y={0} width={SHEET_WIDTH_MM} height={SHEET_HEIGHT_MM} fill="none" stroke="#ddd" strokeWidth="0.3" />
-              <defs>
-                {slots.map((slot) => {
-                  const logo = slot.logo ? logoMap[slot.logo] : null;
-                  if (!logo || logo.type.includes("pdf")) return null;
-                  return (
-                    <clipPath key={`clip-${slot.id}`} id={`clip-${slot.id}`}>
-                      <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM} />
-                    </clipPath>
-                  );
-                })}
-              </defs>
               {slots.map((slot) => {
                 const logo = slot.logo ? logoMap[slot.logo] : null;
                 const isHovered = hoveredSlot === slot.id;
@@ -262,21 +251,10 @@ export default function ImpositionTool() {
                       opacity={isSelected ? 1 : 0.9}
                     />
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM}
-                      fill={isHovered && !logo ? "rgba(0,113,227,0.12)" : "rgba(255,255,255,0.04)"}
+                      fill={isHovered && !logo ? "rgba(0,113,227,0.12)" : "white"}
                       stroke={isSelected ? "#0071e3" : isHovered ? "#4da3ff" : "#888"}
                       strokeWidth={isSelected ? 1 : 0.6}
                     />
-                    {logo && !logo.type.includes("pdf") && (
-                      <image
-                        href={logo.dataUrl}
-                        x={slot.cx - MAGNET_RADIUS_MM}
-                        y={slot.cy - MAGNET_RADIUS_MM}
-                        width={MAGNET_DIAMETER_MM}
-                        height={MAGNET_DIAMETER_MM}
-                        clipPath={`url(#clip-${slot.id})`}
-                        preserveAspectRatio="xMidYMid meet"
-                      />
-                    )}
                     {logo && logo.type.includes("pdf") && (
                       <text x={slot.cx} y={slot.cy + 1} textAnchor="middle" dominantBaseline="middle" fontSize="4" fill="#888">PDF</text>
                     )}
@@ -298,6 +276,28 @@ export default function ImpositionTool() {
                 );
               })}
             </svg>
+            {/* Logo images as HTML overlay — fiable sur tous les navigateurs */}
+            {slots.map((slot) => {
+              const logo = slot.logo ? logoMap[slot.logo] : null;
+              if (!logo || logo.type.includes("pdf")) return null;
+              const r = MAGNET_RADIUS_MM * scale;
+              const cx = slot.cx * scale;
+              const cy = slot.cy * scale;
+              return (
+                <div key={`img-${slot.id}`} style={{
+                  position: "absolute",
+                  left: cx - r,
+                  top: cy - r,
+                  width: r * 2,
+                  height: r * 2,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  pointerEvents: "none",
+                }}>
+                  <img src={logo.dataUrl} alt={logo.name} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                </div>
+              );
+            })}
           </div>
           <div style={s.hint}>Clic — inspecter · Double-clic — effacer · Drag — placer</div>
         </main>
