@@ -1,0 +1,103 @@
+Last login: Sun Mar  1 17:25:41 on ttys001
+charlie@MBP-de-Charlie ~ % sudo rm -rf /usr/local/lib/node_modules
+sudo rm -rf /usr/local/bin/node
+sudo rm -rf /usr/local/bin/npm
+sudo rm -rf ~/.npm
+Password:
+charlie@MBP-de-Charlie ~ % rm -rf ~/.nvm
+charlie@MBP-de-Charlie ~ % brew uninstall node 2>/dev/null || true
+charlie@MBP-de-Charlie ~ % curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 16555  100 16555    0     0  89819      0 --:--:-- --:--:-- --:--:-- 89972
+=> Downloading nvm from git to '/Users/charlie/.nvm'
+=> Cloning into '/Users/charlie/.nvm'...
+remote: Enumerating objects: 403, done.
+remote: Counting objects: 100% (403/403), done.
+remote: Compressing objects: 100% (332/332), done.
+remote: Total 403 (delta 56), reused 168 (delta 43), pack-reused 0 (from 0)
+Receiving objects: 100% (403/403), 404.32 KiB | 1.19 MiB/s, done.
+Resolving deltas: 100% (56/56), done.
+* (HEAD detached at FETCH_HEAD)
+  master
+=> Compressing and cleaning up git repository
+
+=> nvm source string already in /Users/charlie/.zshrc
+=> bash_completion source string already in /Users/charlie/.zshrc
+=> Close and reopen your terminal to start using nvm or run the following to use it now:
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+charlie@MBP-de-Charlie ~ % nvm --version
+0.39.7
+charlie@MBP-de-Charlie ~ % nvm install --lts
+nvm use --lts
+nvm alias default --lts
+Installing latest LTS version.
+Downloading and installing node v24.14.0...
+Downloading https://nodejs.org/dist/v24.14.0/node-v24.14.0-darwin-arm64.tar.xz...
+################################################################################################################# 100.0%
+Computing checksum with sha256sum
+Checksums matched!
+Now using node v24.14.0 (npm v11.9.0)
+Creating default alias: default -> lts/* (-> v24.14.0)
+Now using node v24.14.0 (npm v11.9.0)
+Unsupported option "--lts".
+charlie@MBP-de-Charlie ~ % node --version
+npm --version
+v24.14.0
+11.9.0
+charlie@MBP-de-Charlie ~ % mkdir -p ~/Users/charlie/Documents/Github/DASHBOARDOLDA-main  cd ~/Users/charlie/Documents/Github/DASHBOARDOLDA-main  
+charlie@MBP-de-Charlie ~ % ~ % mkdir -p ~/Users/charlie/Documents/Github/DASHBOARDOLDA-main
+zsh: permission denied: /Users/charlie
+charlie@MBP-de-Charlie ~ % ~ % mkdir -p ~/Users/charlie/Documents/Github/DASHBOARDOLDA-main
+zsh: permission denied: /Users/charlie
+charlie@MBP-de-Charlie ~ % cd ~/Documents/Github
+charlie@MBP-de-Charlie Github % git clone https://github.com/dockbearolda/DASHBOARDOLDA.git
+Cloning into 'DASHBOARDOLDA'...
+remote: Enumerating objects: 2634, done.
+remote: Counting objects: 100% (130/130), done.
+remote: Compressing objects: 100% (71/71), done.
+remote: Total 2634 (delta 81), reused 87 (delta 57), pack-reused 2504 (from 2)
+Receiving objects: 100% (2634/2634), 1.18 MiB | 2.95 MiB/s, done.
+Resolving deltas: 100% (1536/1536), done.
+charlie@MBP-de-Charlie Github % cd DASHBOARDOLDA
+charlie@MBP-de-Charlie DASHBOARDOLDA % npm install
+
+added 671 packages, and audited 672 packages in 13s
+
+173 packages are looking for funding
+  run `npm fund` for details
+
+10 vulnerabilities (8 moderate, 2 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm notice
+npm notice New minor version of npm available! 11.9.0 -> 11.11.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.11.0
+npm notice To update run: npm install -g npm@11.11.0
+npm notice
+charlie@MBP-de-Charlie DASHBOARDOLDA % npm run dev
+
+> dasholda@0.1.0 dev
+> tsx server.ts
+
+> Serveur prêt sur http://0.0.0.0:3000
+[backup] ⏱️  Backup automatique activé (toutes les 4 h)
+[backup] ❌ Échec : Command failed: bash "/Users/charlie/Documents/Github/DASHBOARDOLDA/scripts/backup-db.sh"
+/Users/charlie/Documents/Github/DASHBOARDOLDA/scripts/backup-db.sh: line 42: pg_dump: command not found
+
+[backup] /Users/charlie/Documents/Github/DASHBOARDOLDA/scripts/backup-db.sh: line 42: pg_dump: command not found
+ALLOWED_ORIGIN=*
+DASHBOARD_TOKEN=d1e9c4cd170eb57f8ce6254b5aa70b7f708e465d48daefc7f3b0b7e16bd9f4dc
+DATABASE_URL=postgresql://postgres:fOUknOcXFkbDYBtGwHnodjvcCCPwQYpv@mainline.proxy.rlwy.net:49101/railway
+NEXT_PUBLIC_WEBHOOK_SECRET=d1e9c4cd170eb57f8ce6254b5aa70b7f708e465d48daefc7f3b0b7e16bd9f4dc
+WEBHOOK_SECRET=d1e9c4cd170eb57f8ce6254b5aa70b7f708e465d48daefc7f3b0b7e16bd9f4dc
+
