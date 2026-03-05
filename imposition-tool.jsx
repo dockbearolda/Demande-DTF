@@ -237,31 +237,23 @@ export default function ImpositionTool() {
           <div style={{ ...s.sheet, width: sheetW, height: sheetH }} onDragOver={(e) => e.preventDefault()}>
             <svg style={s.svg} width={sheetW} height={sheetH} viewBox={`0 0 ${SHEET_WIDTH_MM} ${SHEET_HEIGHT_MM}`}>
               <rect x={0} y={0} width={SHEET_WIDTH_MM} height={SHEET_HEIGHT_MM} fill="none" stroke="#ddd" strokeWidth="0.3" />
+              <defs>
+                {slots.map((slot) => {
+                  const logo = slot.logo ? logoMap[slot.logo] : null;
+                  if (!logo || logo.type.includes("pdf")) return null;
+                  return (
+                    <clipPath key={`clip-${slot.id}`} id={`clip-${slot.id}`}>
+                      <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM} />
+                    </clipPath>
+                  );
+                })}
+              </defs>
               {slots.map((slot) => {
                 const logo = slot.logo ? logoMap[slot.logo] : null;
                 const isHovered = hoveredSlot === slot.id;
                 const isSelected = selectedSlot === slot.id;
                 return (
                   <g key={slot.id}>
-                    <defs>
-                      {logo && !logo.type.includes("pdf") && (
-                        <pattern
-                          id={`pat-${slot.id}`}
-                          patternUnits="userSpaceOnUse"
-                          x={slot.cx - MAGNET_RADIUS_MM}
-                          y={slot.cy - MAGNET_RADIUS_MM}
-                          width={MAGNET_DIAMETER_MM}
-                          height={MAGNET_DIAMETER_MM}
-                        >
-                          <image
-                            href={logo.dataUrl}
-                            width={MAGNET_DIAMETER_MM}
-                            height={MAGNET_DIAMETER_MM}
-                            preserveAspectRatio="xMidYMid meet"
-                          />
-                        </pattern>
-                      )}
-                    </defs>
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM + BLEED_MM}
                       fill="none"
                       stroke={isSelected ? "#0071e3" : isHovered ? "#4da3ff" : "#FFD700"}
@@ -270,14 +262,21 @@ export default function ImpositionTool() {
                       opacity={isSelected ? 1 : 0.9}
                     />
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM}
-                      fill={
-                        logo && !logo.type.includes("pdf")
-                          ? `url(#pat-${slot.id})`
-                          : isHovered ? "rgba(0,113,227,0.12)" : "rgba(255,255,255,0.04)"
-                      }
+                      fill={isHovered && !logo ? "rgba(0,113,227,0.12)" : "rgba(255,255,255,0.04)"}
                       stroke={isSelected ? "#0071e3" : isHovered ? "#4da3ff" : "#888"}
                       strokeWidth={isSelected ? 1 : 0.6}
                     />
+                    {logo && !logo.type.includes("pdf") && (
+                      <image
+                        href={logo.dataUrl}
+                        x={slot.cx - MAGNET_RADIUS_MM}
+                        y={slot.cy - MAGNET_RADIUS_MM}
+                        width={MAGNET_DIAMETER_MM}
+                        height={MAGNET_DIAMETER_MM}
+                        clipPath={`url(#clip-${slot.id})`}
+                        preserveAspectRatio="xMidYMid meet"
+                      />
+                    )}
                     {logo && logo.type.includes("pdf") && (
                       <text x={slot.cx} y={slot.cy + 1} textAnchor="middle" dominantBaseline="middle" fontSize="4" fill="#888">PDF</text>
                     )}
