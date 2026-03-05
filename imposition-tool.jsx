@@ -10,7 +10,7 @@ const ROWS = 5;
 const H_GAP = (SHEET_WIDTH_MM - COLS * MAGNET_DIAMETER_MM) / (COLS + 1);
 const V_GAP = (SHEET_HEIGHT_MM - ROWS * MAGNET_DIAMETER_MM) / (ROWS + 1);
 const SCALE_INIT = 1.3;
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "";
 
 const generateSlots = () => {
   const slots = [];

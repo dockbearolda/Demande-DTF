@@ -18,10 +18,12 @@ Run:
 import io
 import base64
 import math
+from pathlib import Path
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # PDF generation
@@ -41,11 +43,20 @@ app = FastAPI(title="OLDA Imposition API", version="1.0.0")
 # ─── CORS ────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict to your domain in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Frontend static files ────────────────────────────────────────────────────
+DIST_DIR = Path(__file__).parent / "dist"
+if DIST_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend():
+        return FileResponse(DIST_DIR / "index.html")
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 SHEET_WIDTH_MM = 600
@@ -222,7 +233,7 @@ def merge_layers_with_pikepdf(pdf_bytes: bytes) -> bytes:
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
-@app.get("/")
+@app.get("/health")
 async def health():
     return {"status": "ok", "service": "OLDA Imposition API", "version": "1.0.0"}
 
