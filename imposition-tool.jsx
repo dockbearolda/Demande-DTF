@@ -28,7 +28,9 @@ export default function ImpositionTool() {
   const [slots, setSlots] = useState(generateSlots());
   const [logos, setLogos] = useState([]);
   const [dragging, setDragging] = useState(null);
+  const draggingRef = useRef(null);
   const [hoveredSlot, setHoveredSlot] = useState(null);
+  const hoveredSlotRef = useRef(null);
   const [generating, setGenerating] = useState(false);
   const [selectedLogo, setSelectedLogo] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -73,22 +75,25 @@ export default function ImpositionTool() {
   }, [handleFiles]);
 
   const handleSlotDrop = useCallback((slotId) => {
-    if (!dragging) return;
+    const d = draggingRef.current;
+    if (!d) return;
     setSlots((prev) => prev.map((s) => {
-      if (s.id === slotId) return { ...s, logo: dragging.logoId };
-      if (dragging.source === "slot" && s.id === dragging.slotId) return { ...s, logo: null };
+      if (s.id === slotId) return { ...s, logo: d.logoId };
+      if (d.source === "slot" && s.id === d.slotId) return { ...s, logo: null };
       return s;
     }));
     setLogos((prev) => prev.map((l) => {
-      if (l.id === dragging.logoId) {
-        const wasInSlot = dragging.source === "slot";
+      if (l.id === d.logoId) {
+        const wasInSlot = d.source === "slot";
         return { ...l, usageCount: wasInSlot ? l.usageCount : l.usageCount + 1 };
       }
       return l;
     }));
+    draggingRef.current = null;
     setDragging(null);
+    hoveredSlotRef.current = null;
     setHoveredSlot(null);
-  }, [dragging]);
+  }, []);
 
   const clearSlot = (slotId) => {
     const slot = slots.find((s) => s.id === slotId);
@@ -198,8 +203,8 @@ export default function ImpositionTool() {
               <div
                 key={logo.id}
                 draggable
-                onDragStart={() => { setDragging({ logoId: logo.id, source: "panel" }); setSelectedLogo(logo.id); }}
-                onDragEnd={() => setDragging(null)}
+                onDragStart={() => { const d = { logoId: logo.id, source: "panel" }; draggingRef.current = d; setDragging(d); setSelectedLogo(logo.id); }}
+                onDragEnd={() => { draggingRef.current = null; setDragging(null); }}
                 onClick={() => setSelectedLogo(logo.id === selectedLogo ? null : logo.id)}
                 style={{ ...s.logoCard, outline: selectedLogo === logo.id ? "1.5px solid #0071e3" : "1.5px solid transparent" }}
               >
@@ -234,7 +239,7 @@ export default function ImpositionTool() {
         {/* SHEET CANVAS */}
         <main ref={canvasRef} style={s.canvas}>
           <div style={s.sheetLabel}>Planche Roland — {SHEET_WIDTH_MM} × {SHEET_HEIGHT_MM} mm</div>
-          <div style={{ ...s.sheet, width: sheetW, height: sheetH, position: "relative" }} onDragOver={(e) => e.preventDefault()}>
+          <div style={{ ...s.sheet, width: sheetW, height: sheetH, position: "relative" }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const hs = hoveredSlotRef.current; if (hs) handleSlotDrop(hs); }}>
             <svg style={s.svg} width={sheetW} height={sheetH} viewBox={`0 0 ${SHEET_WIDTH_MM} ${SHEET_HEIGHT_MM}`}>
               <rect x={0} y={0} width={SHEET_WIDTH_MM} height={SHEET_HEIGHT_MM} fill="none" stroke="#ddd" strokeWidth="0.3" />
               {slots.map((slot) => {
@@ -264,13 +269,13 @@ export default function ImpositionTool() {
                     {/* Hit zone */}
                     <circle cx={slot.cx} cy={slot.cy} r={MAGNET_RADIUS_MM + BLEED_MM}
                       fill="transparent" style={{ cursor: "pointer" }}
-                      onDragOver={(e) => { e.preventDefault(); setHoveredSlot(slot.id); }}
-                      onDragLeave={() => setHoveredSlot(null)}
+                      onDragOver={(e) => { e.preventDefault(); hoveredSlotRef.current = slot.id; setHoveredSlot(slot.id); }}
+                      onDragLeave={() => { hoveredSlotRef.current = null; setHoveredSlot(null); }}
                       onDrop={(e) => { e.preventDefault(); handleSlotDrop(slot.id); }}
                       onDoubleClick={() => clearSlot(slot.id)}
                       onClick={() => { setSelectedSlot(slot.id); setPreviewOpen(true); }}
                       draggable={!!logo}
-                      onDragStart={logo ? () => setDragging({ logoId: logo.id, source: "slot", slotId: slot.id }) : undefined}
+                      onDragStart={logo ? () => { const d = { logoId: logo.id, source: "slot", slotId: slot.id }; draggingRef.current = d; setDragging(d); } : undefined}
                     />
                   </g>
                 );
