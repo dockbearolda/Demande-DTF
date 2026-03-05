@@ -110,24 +110,18 @@ export default function ImpositionTool() {
   };
 
   const handleGenerate = async () => {
-    const filledSlots = slots.filter((s) => s.logo !== null);
-    if (filledSlots.length === 0) {
-      alert("Aucun logo placé sur le plateau.");
-      return;
-    }
-
     setGenerating(true);
     try {
       const payload = {
-        logos: filledSlots.map((slot) => {
-          const logo = logos.find((l) => l.id === slot.logo);
+        logos: slots.map((slot) => {
+          const logo = slot.logo ? logos.find((l) => l.id === slot.logo) : null;
           return {
             slot_id: slot.id,
             cx_mm: slot.cx,
             cy_mm: slot.cy,
-            logo_data: logo.dataUrl,
-            logo_type: logo.type,
-            logo_name: logo.name,
+            logo_data: logo ? logo.dataUrl : null,
+            logo_type: logo ? logo.type : null,
+            logo_name: logo ? logo.name : null,
           };
         }),
       };

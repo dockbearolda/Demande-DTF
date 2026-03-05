@@ -70,11 +70,11 @@ BORDER_MM = 3  # Extra border beyond bleed
 # ─── Models ──────────────────────────────────────────────────────────────────
 class PlacedLogo(BaseModel):
     slot_id: str
-    cx_mm: float          # Center X on sheet (mm)
-    cy_mm: float          # Center Y on sheet (mm)
-    logo_data: str        # base64-encoded PDF or PNG
-    logo_type: str        # "application/pdf" | "image/png" | "image/svg+xml"
-    logo_name: str
+    cx_mm: float
+    cy_mm: float
+    logo_data: Optional[str] = None   # None = empty slot
+    logo_type: Optional[str] = None
+    logo_name: Optional[str] = None
 
 
 class ImpositionRequest(BaseModel):
@@ -126,13 +126,16 @@ def generate_imposition_pdf(req: ImpositionRequest) -> bytes:
         cy_rl = flip_y(item.cy_mm)
         r = req.magnet_radius_mm * mm
 
-        if item.logo_type.startswith("image/"):
-            # Decode base64 image
+        # Inner circle (white fill, gray stroke) — always drawn
+        c.setFillColorRGB(1, 1, 1)
+        c.setStrokeColorRGB(0.55, 0.55, 0.6)
+        c.setLineWidth(0.4)
+        c.circle(cx, cy_rl, r, fill=1, stroke=1)
+
+        if item.logo_data and item.logo_type and item.logo_type.startswith("image/"):
             header, data = item.logo_data.split(",", 1) if "," in item.logo_data else ("", item.logo_data)
             img_bytes = base64.b64decode(data)
             img_buf = io.BytesIO(img_bytes)
-
-            # Draw image clipped to circle (saveState/restoreState isolates each clip)
             c.saveState()
             p = c.beginPath()
             p.circle(cx, cy_rl, r)
@@ -146,29 +149,25 @@ def generate_imposition_pdf(req: ImpositionRequest) -> bytes:
             )
             c.restoreState()
 
-        elif item.logo_type == "application/pdf":
-            # For PDF logos: embed as XObject (preserves vector data)
-            # In production, use pikepdf to extract and place the PDF page
-            # Here we draw a placeholder circle (connect pikepdf for full embed)
-            c.setStrokeColorRGB(0.2, 0.2, 0.2)
-            c.setFillColorRGB(0.95, 0.95, 0.95)
-            c.circle(cx, cy_rl, r, fill=1, stroke=1)
+        elif item.logo_data and item.logo_type == "application/pdf":
             c.setFillColorRGB(0.4, 0.4, 0.4)
-            c.setFont("Helvetica", 8 * mm / 10)
-            c.drawCentredString(cx, cy_rl - 2 * mm, item.logo_name[:20])
+            c.setFont("Helvetica", 6 * mm / 10)
+            c.drawCentredString(cx, cy_rl - 1 * mm, (item.logo_name or "PDF")[:20])
+
+        else:
+            # Empty slot — center dot
+            c.setFillColorRGB(0.5, 0.5, 0.55)
+            c.circle(cx, cy_rl, 0.6 * mm, fill=1, stroke=0)
 
     # ── Layer 2: RDG_WHITE (white underbase) ──────────────────────────────
-    # Draw BEFORE logos so it acts as underbase
-    # In a real Roland workflow, white is a separate separation
     spot_white = build_spot_color("RDG_WHITE", 0, 0, 0, 0)
-    c.showPage()  # New page = new layer in PDF structure
+    c.showPage()
     c.setPageSize((page_w, page_h))
 
     for item in req.logos:
         cx = item.cx_mm * mm
         cy_rl = flip_y(item.cy_mm)
         r = req.magnet_radius_mm * mm
-
         c.setFillColor(spot_white)
         c.setStrokeColor(spot_white)
         c.circle(cx, cy_rl, r, fill=1, stroke=0)
@@ -182,24 +181,22 @@ def generate_imposition_pdf(req: ImpositionRequest) -> bytes:
         cx = item.cx_mm * mm
         cy_rl = flip_y(item.cy_mm)
         r = req.magnet_radius_mm * mm
-
         c.setFillColor(spot_gloss)
         c.setStrokeColor(spot_gloss)
         c.circle(cx, cy_rl, r, fill=1, stroke=0)
 
     # ── Layer 4: CutContour (die-cut line) ────────────────────────────────
-    spot_cut = build_spot_color("CutContour", 0, 1.0, 1.0, 0)  # Yellow CMJK preview
+    spot_cut = build_spot_color("CutContour", 0, 1.0, 1.0, 0)
     c.showPage()
     c.setPageSize((page_w, page_h))
     c.setFillColor(colors.transparent)
     c.setStrokeColor(spot_cut)
-    c.setLineWidth(0.25)  # Hairline — VersaWorks reads color, not width
+    c.setLineWidth(0.25)
 
     for item in req.logos:
         cx = item.cx_mm * mm
         cy_rl = flip_y(item.cy_mm)
         r_cut = (req.magnet_radius_mm + req.bleed_mm + req.border_mm) * mm
-
         c.circle(cx, cy_rl, r_cut, fill=0, stroke=1)
 
     c.save()
@@ -260,7 +257,7 @@ async def generate_pdf(req: ImpositionRequest):
     }
     """
     if not req.logos:
-        raise HTTPException(status_code=400, detail="Aucun logo à imposer")
+        raise HTTPException(status_code=400, detail="Aucun slot à imposer")
 
     try:
         # Step 1: Generate multi-page PDF with layers
