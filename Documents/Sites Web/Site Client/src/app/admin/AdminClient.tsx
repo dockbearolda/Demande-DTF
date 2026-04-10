@@ -81,7 +81,12 @@ export function AdminClient({ initialUsers, adminEmail }: Props) {
           <h1 className={styles.title}>Administration OLDA</h1>
           <p className={styles.subtitle}>Connecté : {adminEmail}</p>
         </div>
-        <a href="/" className={styles.backLink}>← Site</a>
+        <div style={{ display: "flex", gap: 12 }}>
+          <a href="/admin/catalogue" className={styles.backLink} style={{ background: "#1d1d1f", color: "#fff", padding: "8px 18px", borderRadius: 10, textDecoration: "none", fontSize: 14, fontWeight: 600 }}>
+            Modifier le catalogue →
+          </a>
+          <a href="/" className={styles.backLink}>← Site</a>
+        </div>
       </div>
 
       {/* Ajouter un client */}
