@@ -21,7 +21,6 @@
 
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { createHash } from "crypto";
 
 const STRAPI_URL = (process.env.NEXT_PUBLIC_STRAPI_URL ?? "").replace(/\/$/, "");
 
@@ -67,12 +66,17 @@ function getLocalUsers(): LocalUser[] {
 
 /**
  * Vérifie un mot de passe contre le hash stocké.
+ * Utilise Web Crypto API (compatible Edge Runtime et Node.js).
  * Supporte : "sha256:<hex>" ou texte brut (non recommandé en production).
  */
-function checkPassword(input: string, stored: string): boolean {
+async function checkPassword(input: string, stored: string): Promise<boolean> {
   if (stored.startsWith("sha256:")) {
-    const hash = createHash("sha256").update(input).digest("hex");
-    return hash === stored.slice(7);
+    const data = new TextEncoder().encode(input);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashHex = Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    return hashHex === stored.slice(7);
   }
   // Comparaison directe (plaintext) — acceptable si l'env var n'est jamais exposé
   return input === stored;
@@ -149,7 +153,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const user = localUsers.find(
             (u) => u.email.trim().toLowerCase() === email,
           );
-          if (user && checkPassword(password, user.password)) {
+          if (user && await checkPassword(password, user.password)) {
             const adminEmails = (process.env.ADMIN_EMAILS ?? "")
               .split(",")
               .map((e) => e.trim().toLowerCase())

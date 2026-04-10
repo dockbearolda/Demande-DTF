@@ -10,7 +10,6 @@
  *  4. Affiche le nouveau JSON LOCAL_USERS à copier dans Railway
  */
 
-import { createHash } from "crypto";
 import { createInterface } from "readline";
 import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
@@ -40,8 +39,11 @@ function readEnvLocal() {
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q) => new Promise((resolve) => rl.question(q, resolve));
 
-function hash(password) {
-  return "sha256:" + createHash("sha256").update(password).digest("hex");
+async function hash(password) {
+  const data = new TextEncoder().encode(password);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+  return "sha256:" + hex;
 }
 
 async function main() {
@@ -77,7 +79,7 @@ async function main() {
 
   if (action.trim() === "h") {
     const pwd = await ask("Mot de passe à hasher : ");
-    console.log(`\n✓ Hash SHA-256 : ${hash(pwd.trim())}\n`);
+    console.log(`\n✓ Hash SHA-256 : ${await hash(pwd.trim())}\n`);
     rl.close();
     return;
   }
@@ -115,7 +117,7 @@ async function main() {
     users.push({
       id: `client-${Date.now()}`,
       email: email.trim().toLowerCase(),
-      password: hash(password),
+      password: await hash(password),
       name: name.trim(),
       groupe: groupe.trim() || "standard",
     });
