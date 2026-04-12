@@ -1,19 +1,15 @@
 {
-  "name": "olda-imposition",
+  "name": "demande-dtf",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.0"
-  },
+  "description": "Appli temps réel de demandes DTF",
+  "main": "server.js",
   "scripts": {
-    "start": "vite --open",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "sqlite3": "^5.1.7"
   }
 }

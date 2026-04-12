@@ -6,9 +6,7 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    maxHttpBufferSize: 1e8 // 100 Mo pour les logos haute résolution
-});
+const io = new Server(server);
 
 const db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'), (err) => {
     if (err) console.error('Erreur ouverture BDD:', err);
