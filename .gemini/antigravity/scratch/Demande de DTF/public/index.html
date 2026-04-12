@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DTF Olda - Dashboard Production Temps Réel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+                    },
+                    colors: {
+                        brandDarkBlue: '#151e50',
+                        brandLightGray: '#f8fafc'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Montserrat', sans-serif; background-color: #f8fafc; }
+        
+        /* Checkbox arrondie style Apple/Premium */
+        .prt-checkbox {
+            appearance: none;
+            background-color: #fff;
+            margin: 0;
+            display: grid;
+            place-content: center;
+        }
+        .prt-checkbox::before {
+            content: "";
+            width: 0.65em;
+            height: 0.65em;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em white;
+            background-color: white;
+            transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        .prt-checkbox:checked { background-color: #1a202c; border-color: #1a202c; }
+        .prt-checkbox:checked::before { transform: scale(1); }
+
+        /* Animation suppression cachee/fluide */
+        .row-archive-anim { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .row-archived { opacity: 0; transform: scale(0.95); pointer-events: none; height: 0; padding-top: 0 !important; padding-bottom: 0 !important; border-bottom: 0 !important; overflow: hidden; }
+        
+        /* Styles de la ligne cochée (Rayée temp) */
+        .row-checked { 
+            background-color: #f8fafc !important; 
+        }
+        .row-checked .col-strike { 
+            text-decoration: line-through; 
+            opacity: 0.4; 
+            filter: grayscale(1); 
+            transition: all 0.3s;
+        }
+
+        /* Pastille multicolor */
+        .dot-multi {
+            background: conic-gradient(#e74c3c 0deg 60deg, #f39c12 60deg 120deg, #f1c40f 120deg 180deg, #2ecc71 180deg 240deg, #3498db 240deg 300deg, #9b59b6 300deg 360deg);
+        }
+
+        /* Select couleur avec pastille preview */
+        .color-select-wrapper { position: relative; }
+        .color-select-wrapper select { padding-left: 2.2rem !important; }
+        .color-select-dot {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(0,0,0,0.1);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Impression */
+        #print-only-container { display: none; }
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+        }
+
+        @media print {
+            body { background: white !important; font-family: 'Montserrat', sans-serif; color: black; }
+            #app-container { display: none !important; }
+            #print-only-container { display: block !important; }
+            
+            .print-header { 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: flex-end;
+                border-bottom: 2px solid #000; 
+                padding-bottom: 15px; 
+                margin-bottom: 25px; 
+            }
+            /*.print-header h1 { font-size: 26px; font-weight: 900; text-transform: uppercase; margin: 0; }*/
+            /*.print-header p { font-size: 12px; font-weight: 500; color: #333; margin: 0; }*/
+
+            .print-table { width: 100%; border-collapse: collapse; }
+            .print-table th { 
+                background-color: #f1f5f9 !important; 
+                -webkit-print-color-adjust: exact; 
+                text-align: left; 
+                padding: 10px 8px; 
+                border-bottom: 2px solid #000; 
+                font-size: 11px; 
+                font-weight: 800; 
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .print-table tr { break-inside: avoid; }
+            .print-table td { 
+                padding: 12px 8px; 
+                border-bottom: 1px solid #e2e8f0; 
+                font-size: 13px; 
+                font-weight: 600; 
+            }
+            .print-table tr:last-child td { border-bottom: none; }
+            
+            /* Highlight focus columns */
+            .print-table td:nth-child(5), /* Dimension */
+            .print-table td:nth-child(6)  /* Qte */ { 
+                font-size: 14px;
+                font-weight: 800;
+            }
+        }
+
+        /* Supprimer les flèches des inputs number */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-gray-900 pb-16">
+
+    <!-- =========== ZONE APPLICATION =========== -->
+    <div id="app-container">
+        
+        <!-- Header Principal -->
+        <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+            <div class="flex items-center gap-3">
+                <i data-lucide="shirt" class="w-6 h-6 shrink-0"></i>
+                <h1 class="text-xl font-bold tracking-tight">DTF Olda</h1>
+            </div>
+            <div class="hidden sm:flex items-center text-sm font-medium text-gray-500">
+                <span id="conn-status" class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+                Connecté Temps Réel
+            </div>
+        </header>
+
+        <main class="max-w-[1250px] mx-auto px-4 md:px-6 xl:px-0 mt-10">
+            
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
+                <div>
+                    <h2 class="text-[28px] font-black text-gray-900 tracking-tight">Production DTF</h2>
+                    <p class="text-[15px] font-medium text-gray-400 mt-1 mb-5">Gérez et préparez les DTF pour votre production.</p>
+                    
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button onclick="toggleForm()" class="bg-brandDarkBlue text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg hover:bg-blue-900 transition-all hover:scale-[1.02]">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Demande de DTF
+                        </button>
+                        <div class="relative flex-1 sm:flex-none sm:w-64">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                            <input type="text" id="search-input" oninput="filterRequests()" placeholder="Rechercher un client, logo..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brandDarkBlue transition-all shadow-sm">
+                        </div>
+                        <button onclick="preparePrint()" class="bg-white text-gray-700 border border-gray-200 shadow-sm text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-colors">
+                            <i data-lucide="printer" class="w-4 h-4 text-gray-400"></i> Imprimer
+                        </button>
+                        <button onclick="archiveProduction()" class="bg-gray-900 text-white border border-gray-900 shadow-sm text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-800 transition-colors sm:ml-auto">
+                            <i data-lucide="archive" class="w-4 h-4 text-gray-400"></i> Archiver
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENEUR DES GROUPES DE TABLES -->
+            <div id="table-container" class="space-y-12">
+                <div class="p-8 text-center text-gray-400 font-medium">Chargement des données en temps réel...</div>
+            </div>
+
+            <div id="toast-archive" class="fixed bottom-6 right-6 bg-black text-white px-5 py-4 rounded-2xl shadow-2xl border border-gray-800 flex items-center gap-3 transition-all duration-300 transform translate-y-10 opacity-0 pointer-events-none z-50">
+                <i data-lucide="check-circle-2" class="w-5 h-5 text-green-400"></i>
+                <span class="font-medium text-sm" id="toast-message">Mise à jour en temps réel...</span>
+            </div>
+            
+        </main>
+    </div>
+
+    <!-- =========== MODALE D'AJOUT (BULLE) =========== -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="add-modal" class="bg-white p-6 sm:p-8 rounded-[24px] shadow-2xl w-[90%] max-w-[750px] transform scale-95 transition-transform duration-300 opacity-0">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900 tracking-tight">Nouvelle Demande DTF</h3>
+                    <p class="text-[13px] font-medium text-gray-400 mt-1">Les modifications sont synchronisées instantanément.</p>
+                </div>
+                <button onclick="toggleForm()" class="text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 w-10 h-10 flex items-center justify-center rounded-full transition-colors self-start">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Grille sur 2 lignes (3 colonnes par ligne) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-4">
+                <!-- Ligne 1 -->
+                <div>
+                    <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Client</label>
+                    <input type="text" id="in_client" list="client-list" placeholder="ex: Boutique Alpha" autocomplete="off" class="w-full text-[15px] font-semibold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all">
+                    <datalist id="client-list">
+                        <option value="ALTIMA"></option>
+                        <option value="BAD NOIX"></option>
+                        <option value="PARIS CONCOURS"></option>
+                        <option value="JDA"></option>
+                        <option value="BIO GOUT"></option>
+                        <option value="L.A SPORT"></option>
+                        <option value="MON BEAU JARDIN"></option>
+                        <option value="FCL"></option>
+                        <option value="UCP CERGY"></option>
+                        <option value="FRANCK BATAILLE"></option>
+                        <option value="JSA"></option>
+                        <option value="LES BEAUX GOSSES"></option>
+                        <option value="L2 GROUPE"></option>
+                        <option value="BOULOGNE T.C"></option>
+                        <option value="C. ROUFF"></option>
+                        <option value="P. DE LYON"></option>
+                        <option value="RAMA"></option>
+                        <option value="PERICLES AVOCATS"></option>
+                        <option value="ESPACE LOISIRS COP"></option>
+                        <option value="LE MOULIN DE PIVO"></option>
+                        <option value="LA TENDRESSE DE MA"></option>
+                        <option value="F.A.L"></option>
+                        <option value="PARIS KART INDOOR"></option>
+                        <option value="LE CHAT NOIR"></option>
+                        <option value="MACON"></option>
+                        <option value="E V NORD PICARDIE"></option>
+                        <option value="MINISTERE DU TRAVAIL"></option>
+                        <option value="IFECA CONSEIL"></option>
+                        <option value="L.A STUDIO VEXIN"></option>
+                        <option value="L'ATELIER"></option>
+                        <option value="UN SOUFFLE D'AILLEURS"></option>
+                        <option value="D.S. AVOCATS"></option>
+                        <option value="POLICE NATIONALE"></option>
+                        <option value="P.L EDITIONS"></option>
+                        <option value="CROIX ROUGE FRANCAISE"></option>
+                    </datalist>
+                </div>
+                
+                <div>
+                    <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Commande</label>
+                    <select id="in_commande" class="w-full text-sm font-semibold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
+                        <option value="Avant • XS">Avant XS</option>
+                        <option value="Arrière • XS">Arrière XS</option>
+                        <option value="Avant • S">Avant S</option>
+                        <option value="Arrière • S">Arrière S</option>
+                        <option value="Avant • M" selected>Avant M</option>
+                        <option value="Arrière • M">Arrière M</option>
+                        <option value="Avant • L">Avant L</option>
+                        <option value="Arrière • L">Arrière L</option>
+                        <option value="Avant • XL">Avant XL</option>
+                        <option value="Arrière • XL">Arrière XL</option>
+                        <option value="Avant • 2XL">Avant 2XL</option>
+                        <option value="Arrière • 2XL">Arrière 2XL</option>
+                        <option value="Avant • 3XL">Avant 3XL</option>
+                        <option value="Arrière • 3XL">Arrière 3XL</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Logo</label>
+                    <input type="text" id="in_logo" placeholder="ex: Logo_Nike" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all">
+                </div>
+
+                <!-- Ligne 2 -->
+                <div>
+                    <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Couleur</label>
+                    <div class="color-select-wrapper">
+                        <div class="color-select-dot" id="color-preview-dot"></div>
+                        <select id="in_couleur" onchange="updateColorDot()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
+                            <option value="beige">Beige</option>
+                            <option value="blanc">Blanc</option>
+                            <option value="bleu-clair">Bleu clair</option>
+                            <option value="bleu-marine">Bleu marine</option>
+                            <option value="bleu-royal">Bleu royal</option>
+                            <option value="corail">Corail</option>
+                            <option value="jaune">Jaune</option>
+                            <option value="kaki">Kaki</option>
+                            <option value="lavande">Lavande</option>
+                            <option value="menthe">Menthe</option>
+                            <option value="multicolor">Multicolor</option>
+                            <option value="noir">Noir</option>
+                            <option value="orange">Orange</option>
+                            <option value="rose-bebe">Rose bébé</option>
+                            <option value="rouge">Rouge</option>
+                            <option value="vert">Vert</option>
+                            <option value="vert-pastel">Vert pastel</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Dimension</label>
+                    <div class="flex flex-col gap-2">
+                        <select id="in_dim_select" onchange="updateDimField()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
+                            <option value="custom">Personnalisé...</option>
+                            <optgroup label="AVANT">
+                                <option value="45">45 mm</option>
+                                <option value="55">55 mm</option>
+                                <option value="60">60 mm</option>
+                                <option value="65">65 mm</option>
+                                <option value="70">70 mm</option>
+                                <option value="75">75 mm</option>
+                                <option value="80">80 mm</option>
+                                <option value="85">85 mm</option>
+                                <option value="90">90 mm</option>
+                                <option value="100">100 mm</option>
+                                <option value="110">110 mm</option>
+                                <option value="120">120 mm</option>
+                                <option value="130">130 mm</option>
+                                <option value="140">140 mm</option>
+                                <option value="150">150 mm</option>
+                            </optgroup>
+                            <optgroup label="ARRIERE">
+                                <option value="100">100 mm</option>
+                                <option value="130">130 mm</option>
+                                <option value="150">150 mm</option>
+                                <option value="180">180 mm</option>
+                                <option value="200">200 mm</option>
+                                <option value="220">220 mm</option>
+                                <option value="250">250 mm</option>
+                                <option value="280" selected>280 mm</option>
+                                <option value="300">300 mm</option>
+                                <option value="320">320 mm</option>
+                                <option value="350">350 mm</option>
+                            </optgroup>
+                        </select>
+                        <div id="dim_custom_container" class="relative hidden">
+                            <input type="number" id="in_dim_custom" placeholder="Saisir..." class="w-full border border-gray-200 bg-gray-50/50 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white text-sm font-bold text-center font-mono">
+                            <span class="absolute right-3 top-[12px] text-[10px] font-black text-gray-400">MM</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Qté</label>
+                    <div class="flex flex-col gap-2">
+                        <select id="in_qte_select" onchange="updateQteField()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
+                            <option value="custom">Autre...</option>
+                            <!-- Rempli dynamiquement de 1 à 100 -->
+                        </select>
+                        <div id="qte_custom_container" class="relative hidden">
+                            <input type="number" id="in_qte_custom" min="1" max="100" placeholder="Saisir..." class="w-full border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white text-sm font-bold text-center">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="submitRequest()" class="w-full mt-6 bg-brandDarkBlue text-white text-[15px] font-bold py-4 rounded-xl flex justify-center items-center gap-2 hover:bg-blue-900 transition-colors shadow-lg shadow-blue-900/20">
+                <i data-lucide="check" class="w-5 h-5"></i>
+                Valider la demande
+            </button>
+        </div>
+    </div>
+
+    <!-- =========== ZONE IMPRESSION =========== -->
+    <div id="print-only-container">
+        <div class="print-header">
+            <h1>Fiche de Production Atelier - DTF</h1>
+            <p id="print-date"></p>
+        </div>
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th>CLIENT</th>
+                    <th>COMMANDE</th>
+                    <th>LOGO</th>
+                    <th>COULEUR</th>
+                    <th>DIMENSION</th>
+                    <th>QTÉ</th>
+                </tr>
+            </thead>
+            <tbody id="print-tbody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Init Icons
+        lucide.createIcons();
+        const socket = io();
+        // Init pastille couleur et liste quantité au chargement
+        // Init pastille couleur et listes au chargement
+        document.addEventListener('DOMContentLoaded', () => {
+            updateColorDot();
+            // Remplir la liste des quantités de 1 à 100
+            const qteSelect = document.getElementById('in_qte_select');
+            if (qteSelect) {
+                // Ajouter les options 1 à 100 AVANT l'option "Autre"
+                for (let i = 1; i <= 100; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = i;
+                    if(i === 1) opt.selected = true;
+                    qteSelect.appendChild(opt);
+                }
+            }
+        });
+        const container = document.getElementById('table-container');
+        
+        let allRequests = [];
+
+        // Formatting Helpers
+        function getGroupName(dateStr) {
+            if(!dateStr) return "Aujourd'hui";
+            // Normalise DB Date to generic js readable format (SQLite DATETIME is UTC YYYY-MM-DD HH:MM:SS)
+            // It might just be fine as is, but let's try direct parse.
+            const d = new Date(dateStr + (dateStr.includes('Z')?'':'Z'));
+            
+            const today = new Date();
+            const isToday = d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+            
+            if(isToday) return "Aujourd'hui";
+            
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            const label = d.toLocaleDateString('fr-FR', options);
+            return label.charAt(0).toUpperCase() + label.slice(1);
+        }
+
+        // WebSockets Links
+        socket.on('load_requests', (requests) => {
+            allRequests = requests;
+            renderGroupedUI();
+        });
+
+        socket.on('request_added', (req) => {
+            allRequests.unshift(req);
+            renderGroupedUI();
+        });
+
+        socket.on('request_updated', (data) => {
+            const req = allRequests.find(r => r.id === data.id);
+            if(req) {
+                req.checked = data.checked;
+                renderGroupedUI();
+            }
+        });
+
+        socket.on('request_deleted', (id) => {
+            allRequests = allRequests.filter(r => r.id !== id);
+            renderGroupedUI();
+            showToast("Demande supprimée.");
+        });
+
+        socket.on('production_archived', () => {
+            const rowsToArchive = document.querySelectorAll('.row-checked');
+            rowsToArchive.forEach(row => { row.classList.add('row-archive-anim', 'row-archived'); });
+            showToast("Production archivée avec succès !");
+            setTimeout(() => {
+                allRequests = allRequests.filter(r => r.checked === 0);
+                renderGroupedUI();
+            }, 500);
+        });
+
+        // Group Rendering Logic
+        function renderGroupedUI(dataToRender) {
+            container.innerHTML = '';
+            const requests = dataToRender || allRequests;
+            
+            if(requests.length === 0) {
+                container.innerHTML = `<div class="p-10 bg-white border border-gray-200 rounded-3xl text-center text-gray-500 font-bold shadow-sm">Aucune demande trouvée.</div>`;
+                return;
+            }
+
+            // Grouper les requêtes par date
+            const groups = {};
+            requests.forEach(req => {
+                const groupName = getGroupName(req.created_at);
+                if(!groups[groupName]) groups[groupName] = [];
+                groups[groupName].push(req);
+            });
+
+            // Pour chaque groupe, créer la structure HTML
+            for(const [groupName, reqs] of Object.entries(groups)) {
+                
+                // Entête du groupe
+                let groupHTML = `
+                <div class="mb-10">
+                    <div class="flex items-center gap-3 mb-4 pl-1">
+                        <div class="bg-white border text-gray-400 border-gray-200 shadow-sm p-[5px] rounded-lg"><i data-lucide="calendar" class="w-4 h-4"></i></div>
+                        <h3 class="text-[17px] font-extrabold text-[#1a202c] tracking-tight">${groupName}</h3>
+                        <span class="bg-gray-100/80 text-gray-500 text-[11px] font-black px-2 py-[2px] rounded border border-gray-200">${reqs.length}</span>
+                    </div>
+                    
+                    <div class="bg-white rounded-[20px] shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-200 overflow-hidden">
+                        
+                        <div class="hidden lg:grid lg:grid-cols-[1.5fr_1.5fr_1.2fr_1fr_1fr_0.5fr_0.5fr_0.5fr] gap-4 px-6 py-4 border-b border-gray-100">
+                            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest pl-1">Client</div>
+                            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Commande</div>
+                            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Logo</div>
+                            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Couleur</div>
+                            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest text-center">Dimension</div>
+                            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest text-center">Qté</div>
+                            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest text-center">PRT</div>
+                            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest text-center">Action</div>
+                        </div>
+
+                        <!-- Lignes de ce groupe -->
+                        <div class="flex flex-col">
+                `;
+
+                // Corps / Lignes du tableau
+                reqs.forEach(req => {
+                    const colorBadge = getColorHTML(req.couleur);
+                    const isChecked = req.checked === 1;
+                    const rowClass = isChecked ? 'row-checked bg-gray-50/50' : 'bg-white hover:bg-gray-50/40';
+                    const relativeDate = (groupName === "Aujourd'hui") ? "Aujourd'hui" : "13 avr. 2026"; // Pour l'instant statique "Aujourd'hui" pour l'effet
+
+                    groupHTML += `
+                            <div id="row-${req.id}" class="${rowClass} lg:grid lg:grid-cols-[1.5fr_1.5fr_1.2fr_1fr_1fr_0.5fr_0.5fr_0.5fr] gap-4 items-center p-5 px-6 border-b last:border-0 border-gray-100 transition-colors product-line group">
+                                
+                                <div class="col-strike font-bold text-brandDarkBlue text-[16px] tracking-tight pl-1">
+                                    ${escapeHTML(req.client)}
+                                </div>
+                                
+                                <div class="col-strike flex flex-col gap-[3px]">
+                                    <div class="flex items-center text-gray-400 text-[11px] font-bold gap-1.5 uppercase tracking-wide">
+                                        <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                                        <span>${relativeDate}</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-500 font-semibold text-[13px] gap-1.5">
+                                        <i data-lucide="shirt" class="w-[14px] h-[14px] text-gray-400"></i>
+                                        <span>${escapeHTML(req.commande)}</span>
+                                    </div>
+                                </div>
+
+                                <div class="col-strike font-bold text-gray-900 text-[14px] whitespace-nowrap">
+                                    ${escapeHTML(req.logo)}
+                                </div>
+
+                                <div class="col-strike">
+                                    ${colorBadge}
+                                </div>
+
+                                <div class="col-strike lg:text-center">
+                                    <div class="inline-flex items-baseline bg-gray-100/80 rounded-xl px-4 py-2 border border-gray-200/60 shadow-inner">
+                                        <span class="font-bold text-gray-900 text-[14px]">${escapeHTML(req.dimension)}</span>
+                                        <span class="text-[10px] text-gray-400 ml-1 font-bold font-sans">MM</span>
+                                    </div>
+                                </div>
+
+                                <div class="col-strike lg:text-center">
+                                    <div class="inline-flex items-center justify-center bg-[#111827] text-white font-bold text-[13px] w-[34px] h-[34px] rounded-lg shadow-md shadow-gray-300">
+                                        ${parseInt(req.quantite)}
+                                    </div>
+                                </div>
+
+                                <div class="lg:flex lg:justify-center relative">
+                                    <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCheck(${req.id}, this.checked)" class="prt-checkbox w-[22px] h-[22px] border-[2px] border-gray-300 rounded-[6px] focus:ring-0 cursor-pointer shadow-sm group-hover:border-gray-400 transition-colors">
+                                </div>
+
+                                <div class="lg:flex lg:justify-center">
+                                    <button onclick="deleteRequest(${req.id})" class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+
+                            </div>
+                    `;
+                });
+
+                groupHTML += `</div></div></div>`; // Fin du block tableau et mb-10
+                container.insertAdjacentHTML('beforeend', groupHTML);
+            }
+            lucide.createIcons();
+        }
+
+        // Map couleurs → hex
+        const COLOR_MAP = {
+            'beige':       { hex: '#E8D5B0', label: 'Beige' },
+            'blanc':       { hex: '#FFFFFF', label: 'Blanc', border: true },
+            'bleu-clair':  { hex: '#7EC8E3', label: 'Bleu clair' },
+            'bleu-marine': { hex: '#1B2A6B', label: 'Bleu marine' },
+            'bleu-royal':  { hex: '#2251CC', label: 'Bleu royal' },
+            'corail':      { hex: '#FF6B6B', label: 'Corail' },
+            'jaune':       { hex: '#FFD84D', label: 'Jaune' },
+            'kaki':        { hex: '#7B7B3A', label: 'Kaki' },
+            'lavande':     { hex: '#B8A9D9', label: 'Lavande' },
+            'menthe':      { hex: '#A8E6CF', label: 'Menthe' },
+            'multicolor':  { hex: null,      label: 'Multicolor' },
+            'multi':       { hex: null,      label: 'Multicolor' },
+            'noir':        { hex: '#1a202c', label: 'Noir' },
+            'orange':      { hex: '#FF8C42', label: 'Orange' },
+            'rose-bebe':   { hex: '#FFB3C6', label: 'Rose bébé' },
+            'rouge':       { hex: '#DC2626', label: 'Rouge' },
+            'vert':        { hex: '#22C55E', label: 'Vert' },
+            'vert-pastel': { hex: '#90D98E', label: 'Vert pastel' },
+        };
+
+        // Composant Pastille
+        function getColorHTML(c) {
+            const key = (c || '').toLowerCase().trim();
+            const config = COLOR_MAP[key] || { hex: '#9CA3AF', label: c ? c.toUpperCase() : '?' };
+            const isMulti = config.hex === null;
+            const border = (!isMulti && config.border) ? 'border: 1.5px solid #d1d5db;' : 'border: 1.5px solid rgba(0,0,0,0.08);';
+            const dotStyle = isMulti
+                ? 'background: conic-gradient(#e74c3c 0deg 60deg, #f39c12 60deg 120deg, #f1c40f 120deg 180deg, #2ecc71 180deg 240deg, #3498db 240deg 300deg, #9b59b6 300deg 360deg);'
+                : `background-color: ${config.hex};`;
+            return `
+                <div style="display:inline-flex; align-items:center; gap:6px; border:1px solid #e5e7eb; border-radius:9999px; padding: 3px 10px 3px 6px; background:white; box-shadow:0 1px 2px rgba(0,0,0,0.04); width:fit-content;">
+                    <div style="width:11px; height:11px; border-radius:50%; flex-shrink:0; ${dotStyle} ${border}"></div>
+                    <span style="font-size:9px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em;">${config.label}</span>
+                </div>
+            `;
+        }
+
+        // Met à jour la pastille preview dans le select
+        function updateColorDot() {
+            const sel = document.getElementById('in_couleur');
+            const dot = document.getElementById('color-preview-dot');
+            if (!sel || !dot) return;
+            const key = sel.value.toLowerCase();
+            const config = COLOR_MAP[key];
+            if (!config) { dot.style.background = '#9CA3AF'; return; }
+            if (config.hex === null) {
+                dot.style.background = 'conic-gradient(#e74c3c 0deg 60deg, #f39c12 60deg 120deg, #f1c40f 120deg 180deg, #2ecc71 180deg 240deg, #3498db 240deg 300deg, #9b59b6 300deg 360deg)';
+            } else {
+                dot.style.background = config.hex;
+            }
+            dot.style.border = (config.border) ? '1.5px solid #d1d5db' : '1.5px solid rgba(0,0,0,0.1)';
+        }
+
+        // ====== NOUVEAU WORKFLOW (ACTIONS) ======
+        function toggleCheck(id, isChecked) {
+            socket.emit('toggle_check', { id: id, checked: isChecked });
+        }
+
+        function archiveProduction() {
+            if(confirm("Confirmez-vous l'archivage de toutes les lignes cochées ?")) {
+                socket.emit('archive_production');
+            }
+        }
+
+        function deleteRequest(id) {
+            if(confirm("Voulez-vous vraiment supprimer cette demande ?")) {
+                socket.emit('delete_request', id);
+            }
+        }
+
+        function filterRequests() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = allRequests.filter(req => {
+                return req.client.toLowerCase().includes(query) || 
+                       req.logo.toLowerCase().includes(query) || 
+                       req.commande.toLowerCase().includes(query);
+            });
+            renderGroupedUI(filtered);
+        }
+
+        function preparePrint() { socket.emit('get_print_data'); }
+
+        socket.on('print_data_ready', (rows) => {
+            const printTbody = document.getElementById('print-tbody');
+            printTbody.innerHTML = '';
+            
+            if (rows.length === 0) {
+                printTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px;">Aucune demande cochée à imprimer.</td></tr>`;
+            } else {
+                rows.forEach(req => {
+                    printTbody.innerHTML += `
+                        <tr>
+                            <td>${escapeHTML(req.client)}</td>
+                            <td>${escapeHTML(req.commande)}</td>
+                            <td>${escapeHTML(req.logo)}</td>
+                            <td>${escapeHTML(req.couleur).toUpperCase()}</td>
+                            <td>${escapeHTML(req.dimension)} MM</td>
+                            <td><b>${req.quantite}</b></td>
+                        </tr>
+                    `;
+                });
+            }
+            document.getElementById('print-date').innerText = new Date().toLocaleString();
+            setTimeout(() => { window.print(); }, 100);
+        });
+
+        // ====== NOUVELLE MODALE BULLE ======
+        const modalBackdrop = document.getElementById('modal-backdrop');
+        const addModal = document.getElementById('add-modal');
+        let modalOpen = false;
+        
+        function toggleForm() {
+            modalOpen = !modalOpen;
+            if(modalOpen) {
+                // Show
+                modalBackdrop.classList.remove('pointer-events-none');
+                modalBackdrop.style.opacity = '1';
+                addModal.style.opacity = '1';
+                addModal.style.transform = 'scale(1)';
+                document.getElementById('in_client').focus();
+            } else {
+                // Hide
+                modalBackdrop.classList.add('pointer-events-none');
+                modalBackdrop.style.opacity = '0';
+                addModal.style.opacity = '0';
+                addModal.style.transform = 'scale(0.95)';
+            }
+        }
+
+        function updateDimField() {
+            const select = document.getElementById('in_dim_select');
+            const customContainer = document.getElementById('dim_custom_container');
+            if (select.value === 'custom') {
+                customContainer.classList.remove('hidden');
+                document.getElementById('in_dim_custom').focus();
+            } else {
+                customContainer.classList.add('hidden');
+            }
+        }
+
+        function updateQteField() {
+            const select = document.getElementById('in_qte_select');
+            const customContainer = document.getElementById('qte_custom_container');
+            if (select.value === 'custom') {
+                customContainer.classList.remove('hidden');
+                document.getElementById('in_qte_custom').focus();
+            } else {
+                customContainer.classList.add('hidden');
+            }
+        }
+
+        function submitRequest() {
+            const client = document.getElementById('in_client').value || "Client Inconnu";
+            const commande = document.getElementById('in_commande').value || "Avant • M";
+            const logo = document.getElementById('in_logo').value || "Logo";
+            const couleur = document.getElementById('in_couleur').value;
+            
+            const dimSelect = document.getElementById('in_dim_select').value;
+            const dimension = dimSelect === 'custom' 
+                ? (document.getElementById('in_dim_custom').value || "280")
+                : dimSelect;
+                
+            let qteVal = document.getElementById('in_qte_select').value;
+            let quantite = qteVal === 'custom'
+                ? (parseInt(document.getElementById('in_qte_custom').value) || 1)
+                : parseInt(qteVal);
+            
+            // Validation 1-100
+            if (quantite < 1) quantite = 1;
+            if (quantite > 100) {
+                alert("La quantité maximale autorisée est de 100.");
+                return;
+            }
+
+            socket.emit('add_request', { client, commande, logo, couleur, dimension, quantite });
+            
+            // Clean & Close
+            document.getElementById('in_client').value = '';
+            document.getElementById('in_commande').value = 'Avant • M';
+            document.getElementById('in_logo').value = '';
+            document.getElementById('in_dim_custom').value = '';
+            document.getElementById('in_qte_custom').value = '';
+            // Reset selects
+            document.getElementById('in_dim_select').value = '280';
+            document.getElementById('in_qte_select').value = '1';
+            updateDimField();
+            updateQteField();
+            toggleForm();
+        }
+
+        function escapeHTML(str) {
+            if(!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
+            );
+        }
+
+        let toastTimeout;
+        function showToast(msg) {
+            const toast = document.getElementById('toast-archive');
+            document.getElementById('toast-message').innerText = msg;
+            toast.style.transform = 'translateY(0)';
+            toast.style.opacity = '1';
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.style.transform = 'translateY(10px)';
+                toast.style.opacity = '0';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
