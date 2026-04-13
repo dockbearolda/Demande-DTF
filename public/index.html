@@ -657,6 +657,8 @@
                 addModal.style.opacity = '1';
                 addModal.style.transform = 'scale(1)';
                 document.getElementById('in_client').focus();
+                renderLogoPresets();
+                renderDimPresets();
             } else {
                 // Hide
                 modalBackdrop.classList.add('pointer-events-none');
@@ -690,6 +692,8 @@
             document.getElementById('in_dim_custom').value = '';
             document.getElementById('in_dim_custom').classList.add('hidden');
             document.getElementById('in_qte').value = '1';
+            renderLogoPresets();
+            renderDimPresets();
             toggleForm();
         }
 
@@ -712,7 +716,7 @@
 
         function renderLogoPresets() {
             const commande = document.getElementById('in_commande').value;
-            const logos = commande.startsWith('Arrière') ? LOGO_PRESETS.arriere : LOGO_PRESETS.avant;
+            const logos = commande.indexOf('rri') !== -1 ? LOGO_PRESETS.arriere : LOGO_PRESETS.avant;
             const sel = document.getElementById('in_logo');
             sel.innerHTML = logos.map(l => `<option value="${l}">${l}</option>`).join('')
                 + `<option value="__custom__">✏ Saisir manuellement</option>`;
@@ -721,7 +725,7 @@
 
         function renderDimPresets() {
             const commande = document.getElementById('in_commande').value;
-            const dims = commande.startsWith('Arrière') ? DIM_PRESETS.arriere : DIM_PRESETS.avant;
+            const dims = commande.indexOf('rri') !== -1 ? DIM_PRESETS.arriere : DIM_PRESETS.avant;
             const sel = document.getElementById('in_dim');
             sel.innerHTML = dims.map(d => `<option value="${d}">${d} mm</option>`).join('')
                 + `<option value="__custom__">✏ Saisir manuellement</option>`;
