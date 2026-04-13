@@ -203,7 +203,17 @@
 
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Logo</label>
-                    <select id="in_logo" onchange="handleLogoChange()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none"></select>
+                    <select id="in_logo" onchange="handleLogoChange()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
+                        <option value="FLE-PI">FLE-PI</option>
+                        <option value="PAL-PI">PAL-PI</option>
+                        <option value="COEUR-PI">COEUR-PI</option>
+                        <option value="BEA-16">BEA-16</option>
+                        <option value="TOR-04">TOR-04</option>
+                        <option value="SXM-20">SXM-20</option>
+                        <option value="SXM-12">SXM-12</option>
+                        <option value="POITRINE">POITRINE</option>
+                        <option value="__custom__">✏ Saisir manuellement</option>
+                    </select>
                     <input type="text" id="in_logo_custom" placeholder="Saisir un logo..." class="hidden w-full mt-2 text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all">
                 </div>
 
@@ -235,12 +245,74 @@
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Dimension</label>
-                    <select id="in_dim" onchange="handleDimChange()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none"></select>
+                    <select id="in_dim" onchange="handleDimChange()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
+                        <option value="40">40 mm</option>
+                        <option value="45">45 mm</option>
+                        <option value="50">50 mm</option>
+                        <option value="55">55 mm</option>
+                        <option value="60">60 mm</option>
+                        <option value="65">65 mm</option>
+                        <option value="70">70 mm</option>
+                        <option value="75">75 mm</option>
+                        <option value="80">80 mm</option>
+                        <option value="__custom__">✏ Saisir manuellement</option>
+                    </select>
                     <input type="number" id="in_dim_custom" placeholder="Saisir en mm..." class="hidden w-full mt-2 border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white text-sm font-bold text-center font-mono">
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Qté</label>
-                    <select id="in_qte" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none" id="in_qte"></select>
+                    <select id="in_qte" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
+                        <option value="1" selected>1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13">13</option>
+                        <option value="14">14</option>
+                        <option value="15">15</option>
+                        <option value="16">16</option>
+                        <option value="17">17</option>
+                        <option value="18">18</option>
+                        <option value="19">19</option>
+                        <option value="20">20</option>
+                        <option value="21">21</option>
+                        <option value="22">22</option>
+                        <option value="23">23</option>
+                        <option value="24">24</option>
+                        <option value="25">25</option>
+                        <option value="26">26</option>
+                        <option value="27">27</option>
+                        <option value="28">28</option>
+                        <option value="29">29</option>
+                        <option value="30">30</option>
+                        <option value="31">31</option>
+                        <option value="32">32</option>
+                        <option value="33">33</option>
+                        <option value="34">34</option>
+                        <option value="35">35</option>
+                        <option value="36">36</option>
+                        <option value="37">37</option>
+                        <option value="38">38</option>
+                        <option value="39">39</option>
+                        <option value="40">40</option>
+                        <option value="41">41</option>
+                        <option value="42">42</option>
+                        <option value="43">43</option>
+                        <option value="44">44</option>
+                        <option value="45">45</option>
+                        <option value="46">46</option>
+                        <option value="47">47</option>
+                        <option value="48">48</option>
+                        <option value="49">49</option>
+                        <option value="50">50</option>
+                    </select>
                 </div>
             </div>
 
@@ -278,12 +350,7 @@
         lucide.createIcons();
         const socket = io();
         // Init pastille couleur au chargement
-        document.addEventListener('DOMContentLoaded', () => {
-            updateColorDot();
-            initQteSelect();
-            renderLogoPresets();
-            renderDimPresets();
-        });
+        document.addEventListener('DOMContentLoaded', () => updateColorDot());
         const container = document.getElementById('table-container');
         
         let allRequests = [];
@@ -575,8 +642,6 @@
                 addModal.style.opacity = '1';
                 addModal.style.transform = 'scale(1)';
                 document.getElementById('in_client').focus();
-                renderLogoPresets();
-                renderDimPresets();
             } else {
                 // Hide
                 modalBackdrop.classList.add('pointer-events-none');
@@ -610,8 +675,6 @@
             document.getElementById('in_dim_custom').value = '';
             document.getElementById('in_dim_custom').classList.add('hidden');
             document.getElementById('in_qte').value = '1';
-            renderLogoPresets();
-            renderDimPresets();
             toggleForm();
         }
 
@@ -627,15 +690,27 @@
             arriere: ['VIN-01', 'CRAB-01', 'SUR-07', 'WRA-01', 'BEA-16', 'TOR-04', 'SXM-20', 'SXM-12']
         };
 
+        const DIM_PRESETS = {
+            avant:   [40, 45, 50, 55, 60, 65, 70, 75, 80],
+            arriere: [100, 120, 150, 180, 200, 220, 250, 280, 300, 320, 350, 380]
+        };
+
         function renderLogoPresets() {
             const commande = document.getElementById('in_commande').value;
             const logos = commande.startsWith('Arrière') ? LOGO_PRESETS.arriere : LOGO_PRESETS.avant;
             const sel = document.getElementById('in_logo');
-            const prev = sel.value;
             sel.innerHTML = logos.map(l => `<option value="${l}">${l}</option>`).join('')
                 + `<option value="__custom__">✏ Saisir manuellement</option>`;
-            sel.value = logos.includes(prev) ? prev : logos[0];
             handleLogoChange();
+        }
+
+        function renderDimPresets() {
+            const commande = document.getElementById('in_commande').value;
+            const dims = commande.startsWith('Arrière') ? DIM_PRESETS.arriere : DIM_PRESETS.avant;
+            const sel = document.getElementById('in_dim');
+            sel.innerHTML = dims.map(d => `<option value="${d}">${d} mm</option>`).join('')
+                + `<option value="__custom__">✏ Saisir manuellement</option>`;
+            handleDimChange();
         }
 
         function handleLogoChange() {
@@ -645,33 +720,11 @@
             if (isCustom) custom.focus();
         }
 
-        const DIM_PRESETS = {
-            avant:   [40, 45, 50, 55, 60, 65, 70, 75, 80],
-            arriere: [100, 120, 150, 180, 200, 220, 250, 280, 300, 320, 350, 380]
-        };
-
-        function renderDimPresets() {
-            const commande = document.getElementById('in_commande').value;
-            const dims = commande.startsWith('Arrière') ? DIM_PRESETS.arriere : DIM_PRESETS.avant;
-            const sel = document.getElementById('in_dim');
-            const prev = parseInt(sel.value, 10);
-            sel.innerHTML = dims.map(d => `<option value="${d}">${d} mm</option>`).join('')
-                + `<option value="__custom__">✏ Saisir manuellement</option>`;
-            sel.value = dims.includes(prev) ? prev : dims[0];
-            handleDimChange();
-        }
-
         function handleDimChange() {
             const custom = document.getElementById('in_dim_custom');
             const isCustom = document.getElementById('in_dim').value === '__custom__';
             custom.classList.toggle('hidden', !isCustom);
             if (isCustom) custom.focus();
-        }
-
-        function initQteSelect() {
-            const sel = document.getElementById('in_qte');
-            sel.innerHTML = Array.from({length: 50}, (_, i) => i + 1)
-                .map(n => `<option value="${n}"${n === 1 ? ' selected' : ''}>${n}</option>`).join('');
         }
 
         let toastTimeout;
