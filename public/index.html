@@ -49,6 +49,11 @@
         .prt-checkbox:checked { background-color: #1a202c; border-color: #1a202c; }
         .prt-checkbox:checked::before { transform: scale(1); }
 
+        /* Supprime les flèches des champs numériques */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
         /* Animation suppression cachee/fluide */
         .row-archive-anim { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .row-archived { opacity: 0; transform: scale(0.95); pointer-events: none; height: 0; padding-top: 0 !important; padding-bottom: 0 !important; border-bottom: 0 !important; overflow: hidden; }
@@ -178,7 +183,7 @@
                 
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Commande</label>
-                    <select id="in_commande" class="w-full text-sm font-semibold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
+                    <select id="in_commande" onchange="renderLogoPresets(); renderDimPresets()" class="w-full text-sm font-semibold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none">
                         <option value="Avant • XS">Avant XS</option>
                         <option value="Arrière • XS">Arrière XS</option>
                         <option value="Avant • S">Avant S</option>
@@ -198,7 +203,8 @@
 
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Logo</label>
-                    <input type="text" id="in_logo" placeholder="ex: Logo_Nike" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all">
+                    <input type="text" id="in_logo" placeholder="ex: Logo_Nike" oninput="renderLogoPresets()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all">
+                    <div id="logo-presets" class="flex flex-wrap gap-1.5 mt-2"></div>
                 </div>
 
                 <!-- Ligne 2 -->
@@ -230,9 +236,10 @@
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Dimension</label>
                     <div class="relative">
-                        <input type="number" id="in_dim" placeholder="280" class="w-full border border-gray-200 bg-gray-50/50 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white text-sm font-bold text-center font-mono">
+                        <input type="number" id="in_dim" placeholder="--" oninput="renderDimPresets()" class="w-full border border-gray-200 bg-gray-50/50 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white text-sm font-bold text-center font-mono">
                         <span class="absolute right-3 top-[12px] text-[10px] font-black text-gray-400">MM</span>
                     </div>
+                    <div id="dim-presets" class="flex flex-wrap gap-1.5 mt-2"></div>
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Qté</label>
@@ -566,6 +573,8 @@
                 addModal.style.opacity = '1';
                 addModal.style.transform = 'scale(1)';
                 document.getElementById('in_client').focus();
+                renderLogoPresets();
+                renderDimPresets();
             } else {
                 // Hide
                 modalBackdrop.classList.add('pointer-events-none');
@@ -589,6 +598,9 @@
             document.getElementById('in_client').value = '';
             document.getElementById('in_commande').value = 'Avant • M';
             document.getElementById('in_logo').value = '';
+            document.getElementById('in_dim').value = '';
+            renderLogoPresets();
+            renderDimPresets();
             toggleForm();
         }
 
@@ -597,6 +609,56 @@
             return str.replace(/[&<>'"]/g, 
                 tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
             );
+        }
+
+        const LOGO_PRESETS = {
+            avant:   ['FLE-PI', 'PAL-PI', 'COEUR-PI', 'BEA-16', 'TOR-04', 'SXM-20', 'SXM-12', 'POITRINE'],
+            arriere: ['VIN-01', 'CRAB-01', 'SUR-07', 'WRA-01', 'BEA-16', 'TOR-04', 'SXM-20', 'SXM-12']
+        };
+
+        function renderLogoPresets() {
+            const commande = document.getElementById('in_commande').value;
+            const logos = commande.startsWith('Arrière') ? LOGO_PRESETS.arriere : LOGO_PRESETS.avant;
+            const currentLogo = document.getElementById('in_logo').value.trim();
+            const container = document.getElementById('logo-presets');
+            container.innerHTML = logos.map(logo => {
+                const isActive = logo === currentLogo;
+                const cls = isActive
+                    ? 'bg-brandDarkBlue text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+                return `<button type="button" onclick="selectLogo('${logo}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-gray-200 transition-colors ${cls}">${logo}</button>`;
+            }).join('');
+        }
+
+        function selectLogo(logo) {
+            const input = document.getElementById('in_logo');
+            input.value = (input.value.trim() === logo) ? '' : logo;
+            renderLogoPresets();
+        }
+
+        const DIM_PRESETS = {
+            avant:   [40, 45, 50, 55, 60, 65, 70, 75, 80],
+            arriere: [100, 120, 150, 180, 200, 220, 250, 280, 300, 320, 350, 380]
+        };
+
+        function renderDimPresets() {
+            const commande = document.getElementById('in_commande').value;
+            const dims = commande.startsWith('Arrière') ? DIM_PRESETS.arriere : DIM_PRESETS.avant;
+            const currentDim = parseInt(document.getElementById('in_dim').value, 10);
+            const container = document.getElementById('dim-presets');
+            container.innerHTML = dims.map(d => {
+                const isActive = d === currentDim;
+                const cls = isActive
+                    ? 'bg-brandDarkBlue text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+                return `<button type="button" onclick="selectDim(${d})" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-gray-200 transition-colors ${cls}">${d}</button>`;
+            }).join('');
+        }
+
+        function selectDim(dim) {
+            const input = document.getElementById('in_dim');
+            input.value = (parseInt(input.value, 10) === dim) ? '' : dim;
+            renderDimPresets();
         }
 
         let toastTimeout;
