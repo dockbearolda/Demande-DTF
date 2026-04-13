@@ -49,6 +49,11 @@
         .prt-checkbox:checked { background-color: #1a202c; border-color: #1a202c; }
         .prt-checkbox:checked::before { transform: scale(1); }
 
+        /* Supprime les flèches des champs numériques */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
         /* Animation suppression cachee/fluide */
         .row-archive-anim { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .row-archived { opacity: 0; transform: scale(0.95); pointer-events: none; height: 0; padding-top: 0 !important; padding-bottom: 0 !important; border-bottom: 0 !important; overflow: hidden; }
