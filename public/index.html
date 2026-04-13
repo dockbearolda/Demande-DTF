@@ -203,8 +203,8 @@
 
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Logo</label>
-                    <input type="text" id="in_logo" placeholder="ex: Logo_Nike" oninput="renderLogoPresets()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all">
-                    <div id="logo-presets" class="flex flex-wrap gap-1.5 mt-2"></div>
+                    <select id="in_logo" onchange="handleLogoChange()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none"></select>
+                    <input type="text" id="in_logo_custom" placeholder="Saisir un logo..." class="hidden w-full mt-2 text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all">
                 </div>
 
                 <!-- Ligne 2 -->
@@ -235,15 +235,12 @@
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Dimension</label>
-                    <div class="relative">
-                        <input type="number" id="in_dim" placeholder="--" oninput="renderDimPresets()" class="w-full border border-gray-200 bg-gray-50/50 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white text-sm font-bold text-center font-mono">
-                        <span class="absolute right-3 top-[12px] text-[10px] font-black text-gray-400">MM</span>
-                    </div>
-                    <div id="dim-presets" class="flex flex-wrap gap-1.5 mt-2"></div>
+                    <select id="in_dim" onchange="handleDimChange()" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none"></select>
+                    <input type="number" id="in_dim_custom" placeholder="Saisir en mm..." class="hidden w-full mt-2 border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white text-sm font-bold text-center font-mono">
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Qté</label>
-                    <input type="number" id="in_qte" value="1" min="1" class="w-full border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white text-sm font-bold text-center">
+                    <select id="in_qte" class="w-full text-sm font-bold border border-gray-200 bg-gray-50/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brandDarkBlue focus:bg-white transition-all cursor-pointer appearance-none" id="in_qte"></select>
                 </div>
             </div>
 
@@ -281,7 +278,12 @@
         lucide.createIcons();
         const socket = io();
         // Init pastille couleur au chargement
-        document.addEventListener('DOMContentLoaded', () => updateColorDot());
+        document.addEventListener('DOMContentLoaded', () => {
+            updateColorDot();
+            initQteSelect();
+            renderLogoPresets();
+            renderDimPresets();
+        });
         const container = document.getElementById('table-container');
         
         let allRequests = [];
@@ -587,18 +589,27 @@
         function submitRequest() {
             const client = document.getElementById('in_client').value || "Client Inconnu";
             const commande = document.getElementById('in_commande').value || "Avant • M";
-            const logo = document.getElementById('in_logo').value || "Logo";
+            const logoSel = document.getElementById('in_logo').value;
+            const logo = (logoSel === '__custom__')
+                ? (document.getElementById('in_logo_custom').value.trim() || 'Logo')
+                : (logoSel || 'Logo');
             const couleur = document.getElementById('in_couleur').value;
-            const dimension = document.getElementById('in_dim').value || "280";
+            const dimSel = document.getElementById('in_dim').value;
+            const dimension = (dimSel === '__custom__')
+                ? (document.getElementById('in_dim_custom').value || '280')
+                : (dimSel || '280');
             const quantite = document.getElementById('in_qte').value || 1;
 
             socket.emit('add_request', { client, commande, logo, couleur, dimension, quantite });
-            
+
             // Clean & Close
             document.getElementById('in_client').value = '';
             document.getElementById('in_commande').value = 'Avant • M';
-            document.getElementById('in_logo').value = '';
-            document.getElementById('in_dim').value = '';
+            document.getElementById('in_logo_custom').value = '';
+            document.getElementById('in_logo_custom').classList.add('hidden');
+            document.getElementById('in_dim_custom').value = '';
+            document.getElementById('in_dim_custom').classList.add('hidden');
+            document.getElementById('in_qte').value = '1';
             renderLogoPresets();
             renderDimPresets();
             toggleForm();
@@ -619,21 +630,19 @@
         function renderLogoPresets() {
             const commande = document.getElementById('in_commande').value;
             const logos = commande.startsWith('Arrière') ? LOGO_PRESETS.arriere : LOGO_PRESETS.avant;
-            const currentLogo = document.getElementById('in_logo').value.trim();
-            const container = document.getElementById('logo-presets');
-            container.innerHTML = logos.map(logo => {
-                const isActive = logo === currentLogo;
-                const cls = isActive
-                    ? 'bg-brandDarkBlue text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200';
-                return `<button type="button" onclick="selectLogo('${logo}')" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-gray-200 transition-colors ${cls}">${logo}</button>`;
-            }).join('');
+            const sel = document.getElementById('in_logo');
+            const prev = sel.value;
+            sel.innerHTML = logos.map(l => `<option value="${l}">${l}</option>`).join('')
+                + `<option value="__custom__">✏ Saisir manuellement</option>`;
+            sel.value = logos.includes(prev) ? prev : logos[0];
+            handleLogoChange();
         }
 
-        function selectLogo(logo) {
-            const input = document.getElementById('in_logo');
-            input.value = (input.value.trim() === logo) ? '' : logo;
-            renderLogoPresets();
+        function handleLogoChange() {
+            const custom = document.getElementById('in_logo_custom');
+            const isCustom = document.getElementById('in_logo').value === '__custom__';
+            custom.classList.toggle('hidden', !isCustom);
+            if (isCustom) custom.focus();
         }
 
         const DIM_PRESETS = {
@@ -644,21 +653,25 @@
         function renderDimPresets() {
             const commande = document.getElementById('in_commande').value;
             const dims = commande.startsWith('Arrière') ? DIM_PRESETS.arriere : DIM_PRESETS.avant;
-            const currentDim = parseInt(document.getElementById('in_dim').value, 10);
-            const container = document.getElementById('dim-presets');
-            container.innerHTML = dims.map(d => {
-                const isActive = d === currentDim;
-                const cls = isActive
-                    ? 'bg-brandDarkBlue text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200';
-                return `<button type="button" onclick="selectDim(${d})" class="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-gray-200 transition-colors ${cls}">${d}</button>`;
-            }).join('');
+            const sel = document.getElementById('in_dim');
+            const prev = parseInt(sel.value, 10);
+            sel.innerHTML = dims.map(d => `<option value="${d}">${d} mm</option>`).join('')
+                + `<option value="__custom__">✏ Saisir manuellement</option>`;
+            sel.value = dims.includes(prev) ? prev : dims[0];
+            handleDimChange();
         }
 
-        function selectDim(dim) {
-            const input = document.getElementById('in_dim');
-            input.value = (parseInt(input.value, 10) === dim) ? '' : dim;
-            renderDimPresets();
+        function handleDimChange() {
+            const custom = document.getElementById('in_dim_custom');
+            const isCustom = document.getElementById('in_dim').value === '__custom__';
+            custom.classList.toggle('hidden', !isCustom);
+            if (isCustom) custom.focus();
+        }
+
+        function initQteSelect() {
+            const sel = document.getElementById('in_qte');
+            sel.innerHTML = Array.from({length: 50}, (_, i) => i + 1)
+                .map(n => `<option value="${n}"${n === 1 ? ' selected' : ''}>${n}</option>`).join('');
         }
 
         let toastTimeout;
