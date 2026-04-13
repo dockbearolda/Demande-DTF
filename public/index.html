@@ -503,8 +503,11 @@
                                     <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCheck(${req.id}, this.checked)" class="prt-checkbox w-[22px] h-[22px] border-[2px] border-gray-300 rounded-[6px] focus:ring-0 cursor-pointer shadow-sm group-hover:border-gray-400 transition-colors">
                                 </div>
 
-                                <div class="lg:flex lg:justify-center">
-                                    <button onclick="deleteRequest(${req.id})" class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                                <div class="lg:flex lg:justify-center gap-1">
+                                    <button onclick="duplicateRequest(${req.id})" class="p-2 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Dupliquer">
+                                        <i data-lucide="copy" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="deleteRequest(${req.id})" class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Supprimer">
                                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                                     </button>
                                 </div>
@@ -589,6 +592,19 @@
             if(confirm("Voulez-vous vraiment supprimer cette demande ?")) {
                 socket.emit('delete_request', id);
             }
+        }
+
+        function duplicateRequest(id) {
+            const req = allRequests.find(r => r.id === id);
+            if (!req) return;
+            socket.emit('add_request', {
+                client: req.client,
+                commande: req.commande,
+                logo: req.logo,
+                couleur: req.couleur,
+                dimension: req.dimension,
+                quantite: req.quantite
+            });
         }
 
         function filterRequests() {
