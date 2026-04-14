@@ -66,6 +66,18 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Modifier une demande existante
+    socket.on('update_request', (data) => {
+        const { id, client, commande, logo, couleur, dimension, quantite } = data;
+        db.run(
+            `UPDATE requests SET client=?, commande=?, logo=?, couleur=?, dimension=?, quantite=? WHERE id=?`,
+            [client, commande, logo, couleur, dimension, quantite, id],
+            (err) => {
+                if (!err) io.emit('request_edited', { id, client, commande, logo, couleur, dimension, quantite });
+            }
+        );
+    });
+
     // Archiver la production (tous ceux qui sont cochés et non archivés)
     socket.on('archive_production', () => {
         db.run(`UPDATE requests SET archived = 1 WHERE checked = 1 AND archived = 0`, function(err) {
