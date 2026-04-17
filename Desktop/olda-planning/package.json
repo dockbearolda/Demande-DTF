@@ -40,10 +40,10 @@
   "build": {
     "appId": "com.planningolda.app",
     "productName": "Planning OLDA",
+    "asar": false,
     "files": [
       "public/electron/**/*",
-      "out/**/*",
-      "node_modules/**/*"
+      "out/**/*"
     ],
     "directories": {
       "buildResources": "public/assets",
@@ -51,16 +51,19 @@
     },
     "win": {
       "target": [
-        "nsis"
-      ],
-      "icon": "public/assets/icon.png"
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ]
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Planning OLDA"
+    "mac": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ]
     }
   }
 }

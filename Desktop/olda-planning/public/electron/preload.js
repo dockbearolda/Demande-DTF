@@ -1,21 +1,20 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Expose secure IPC methods to React frontend
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Workspace management (Phase 2)
-  selectWorkspace: () => ipcRenderer.invoke('get-workspace-path'),
-  saveWorkspacePath: (path) => ipcRenderer.invoke('save-workspace-path', path),
-  getWorkspacePath: () => ipcRenderer.invoke('get-workspace-path'),
+  // Workspace
+  getWorkspace:    ()       => ipcRenderer.invoke('workspace:get'),
+  selectWorkspace: ()       => ipcRenderer.invoke('workspace:select'),
+  setWorkspace:    (p)      => ipcRenderer.invoke('workspace:set', p),
 
-  // Data operations (Phase 3)
-  // These will be expanded with CRUD operations for orders, workflows, notes, etc.
+  // Data
+  loadData:        ()       => ipcRenderer.invoke('data:load'),
+  saveData:        (items)  => ipcRenderer.invoke('data:save', items),
 
-  // Listen to IPC events from main process
-  onDataChange: (callback) => {
-    ipcRenderer.on('data-changed', (event, data) => callback(data));
-  },
-
-  removeDataChangeListener: () => {
-    ipcRenderer.removeAllListeners('data-changed');
+  // Real-time events from main process
+  onDataChanged:        (cb) => ipcRenderer.on('data:changed',      (_, items) => cb(items)),
+  onWorkspaceChanged:   (cb) => ipcRenderer.on('workspace:changed', (_, p)     => cb(p)),
+  removeAllListeners:   ()   => {
+    ipcRenderer.removeAllListeners('data:changed');
+    ipcRenderer.removeAllListeners('workspace:changed');
   },
 });
