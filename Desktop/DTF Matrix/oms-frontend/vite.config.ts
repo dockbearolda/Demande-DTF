@@ -13,6 +13,9 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
+  optimizeDeps: {
+    include: ["lucide-react"],
+  },
   build: {
     rollupOptions: {
       output: {
