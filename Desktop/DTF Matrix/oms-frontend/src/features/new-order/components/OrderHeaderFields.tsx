@@ -281,11 +281,12 @@ function ClientAutocomplete({
           }
         }}
         placeholder="Commencer à taper le nom du client…"
-        // text-base = 16px → no iOS zoom on focus.
-        className={`block h-12 w-full rounded-lg border bg-white px-4 text-base text-slate-900 placeholder:text-slate-500 transition focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+        // 16px base — readable at desk distance. 2px border on error
+        // so it stays visible at a glance during a long shift.
+        className={`block h-12 w-full rounded-lg bg-white px-4 text-base text-slate-900 placeholder:text-slate-500 transition focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
           invalid
-            ? "border-rose-500 focus:border-rose-600"
-            : "border-slate-300 focus:border-slate-500"
+            ? "border-2 border-rose-600 focus:border-rose-700"
+            : "border border-slate-300 focus:border-slate-500"
         }`}
       />
 
@@ -377,7 +378,16 @@ function DateField({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

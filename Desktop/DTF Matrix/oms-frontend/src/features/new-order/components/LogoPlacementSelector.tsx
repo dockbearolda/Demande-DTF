@@ -31,7 +31,7 @@ const PLACEMENT_OPTIONS = [
 
 function TshirtMockup({ placement }: { placement: LogoPlacement }) {
   return (
-    <div className="flex h-20 w-16 flex-col items-center justify-center rounded-lg border border-slate-300 bg-slate-100 text-center text-[10px] font-semibold text-slate-600">
+    <div className="flex h-20 w-16 flex-col items-center justify-center rounded-lg border border-slate-300 bg-slate-100 text-center text-[11px] font-semibold text-slate-700">
       {placement === "front-heart" && (
         <>
           <div className="mb-1 h-2 w-2 rounded-full bg-slate-400" />
@@ -92,16 +92,16 @@ export function LogoPlacementSelector({ selected, onChange, basePrice }: Props) 
               }`}
             >
               <TshirtMockup placement={opt.id} />
-              <div className="text-left">
+              <div className="text-left leading-[1.6]">
                 <div
-                  className={`text-[11px] font-semibold ${
-                    isSelected ? "text-blue-700" : "text-slate-700"
+                  className={`text-[13px] font-semibold ${
+                    isSelected ? "text-blue-700" : "text-slate-800"
                   }`}
                 >
                   {opt.label}
                 </div>
-                <div className="text-[10px] text-slate-500">{opt.description}</div>
-                <div className="mt-1 text-[10px] font-bold text-slate-600">
+                <div className="text-[12px] text-slate-600">{opt.description}</div>
+                <div className="mt-1 text-[13px] font-bold text-slate-800">
                   +{opt.surcharge.toFixed(2)}€
                 </div>
               </div>
@@ -111,14 +111,14 @@ export function LogoPlacementSelector({ selected, onChange, basePrice }: Props) 
       </div>
 
       {priceInfo && (
-        <div className="rounded-lg bg-indigo-50 p-3 text-[12px]">
+        <div className="rounded-lg bg-indigo-50 p-3 text-[13px] leading-relaxed">
           <div className="flex items-baseline justify-between">
-            <span className="text-slate-600">Prix unitaire ajusté</span>
+            <span className="text-slate-700">Prix unitaire ajusté</span>
             <span className="font-bold text-indigo-700">
               {priceInfo.totalPrice.toFixed(2)}€
             </span>
           </div>
-          <div className="mt-1 text-[11px] text-slate-600">
+          <div className="mt-1 text-[12px] text-slate-700">
             Base {basePrice.toFixed(2)}€ + {priceInfo.surcharge.toFixed(2)}€ surcharge
           </div>
         </div>

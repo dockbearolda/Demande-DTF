@@ -45,12 +45,12 @@ export function ProductCategoryPicker({ selectedId, onSelect }: Props) {
               size={28}
               className={isSelected ? "text-blue-700" : "text-slate-700"}
             />
-            <span className="w-full text-center text-[12px] font-semibold leading-tight">
+            <span className="w-full text-center text-[13px] font-semibold leading-snug">
               {cat.label}
             </span>
             {badge && (
               <span
-                className={`w-full text-center text-[10px] font-semibold uppercase tracking-wide leading-tight ${
+                className={`w-full text-center text-[12px] font-semibold uppercase tracking-wide leading-snug ${
                   isSelected ? "text-blue-700" : "text-slate-600"
                 }`}
               >

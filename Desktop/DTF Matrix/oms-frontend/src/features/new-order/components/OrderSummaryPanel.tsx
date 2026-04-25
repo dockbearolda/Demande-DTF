@@ -107,6 +107,7 @@ export const OrderSummaryPanel = memo(function OrderSummaryPanel({ selectedCateg
                 categoryId={selectedCategory.id}
                 totalQty={totals.totalQty}
                 isUrgent={header.isUrgent}
+                subtotal={totals.subtotal}
                 compact
               />
             )}

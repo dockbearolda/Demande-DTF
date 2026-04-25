@@ -301,11 +301,12 @@ export function Input({
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}
       placeholder={placeholder}
-      // text-base = 16px → no iOS auto-zoom on focus.
-      className={`block h-12 w-full rounded-lg border bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+      // 16px base font — readable at 60–70cm desk distance.
+      // Error borders are 2px so they stand out under operator fatigue.
+      className={`block h-12 w-full rounded-lg bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
         isInvalid
-          ? "border-rose-500 focus:border-rose-600"
-          : "border-slate-300 focus:border-slate-500"
+          ? "border-2 border-rose-600 focus:border-rose-700"
+          : "border border-slate-300 focus:border-slate-500"
       }`}
     />
   );
@@ -353,7 +354,7 @@ export function QuantityStepper({
         // 44×44 tap target.
         className="flex h-11 min-w-[44px] items-center justify-center rounded-l-lg px-2 text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-30"
       >
-        <MinusIcon className="h-4 w-4" aria-hidden="true" />
+        <MinusIcon className="h-5 w-5" aria-hidden="true" />
       </button>
       <input
         id={resolvedId}
@@ -378,7 +379,7 @@ export function QuantityStepper({
         disabled={max != null && value >= max}
         className="flex h-11 min-w-[44px] items-center justify-center rounded-r-lg px-2 text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-30"
       >
-        <PlusIcon className="h-4 w-4" aria-hidden="true" />
+        <PlusIcon className="h-5 w-5" aria-hidden="true" />
       </button>
     </div>
   );

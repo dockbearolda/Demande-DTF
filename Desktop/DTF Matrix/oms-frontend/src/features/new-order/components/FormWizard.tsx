@@ -167,7 +167,7 @@ function ProgressBar({
                 >
                   {s.label}
                 </div>
-                <div className="hidden text-[10px] font-medium text-slate-400 sm:block">
+                <div className="hidden text-[12px] font-medium text-slate-500 sm:block">
                   {s.description}
                 </div>
               </div>
@@ -177,8 +177,8 @@ function ProgressBar({
       </div>
 
       {/* % completion */}
-      <div className="mt-3 flex items-center justify-between text-[11px]">
-        <span className="font-medium text-slate-500">
+      <div className="mt-3 flex items-center justify-between text-[12px]">
+        <span className="font-medium text-slate-600">
           Étape {currentStep} sur {STEPS.length}
         </span>
         <span className="font-bold text-blue-700 tabular-nums">{completion}%</span>

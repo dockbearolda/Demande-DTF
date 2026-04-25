@@ -100,6 +100,8 @@ interface NewOrderState {
 
   // Lifecycle
   clearLine: () => void;
+  /** Réinitialise uniquement la ligne et revient à l'étape 1. Le header (client, opérateur…) est conservé. */
+  resetLine: () => void;
   reset: () => void;
   validate: () => ValidationResult;
 }
@@ -436,6 +438,9 @@ export const useNewOrderStore = create<NewOrderState>((set, get) => ({
 
   clearLine: () =>
     set((s) => ({ draft: { ...s.draft, line: null } })),
+
+  resetLine: () =>
+    set((s) => ({ draft: { ...s.draft, line: null }, currentStep: 1 })),
 
   reset: () => {
     clearPersisted();

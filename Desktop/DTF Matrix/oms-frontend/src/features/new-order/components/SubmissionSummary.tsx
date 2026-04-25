@@ -1,5 +1,7 @@
 import { memo, useMemo } from "react";
 import type { Order } from "@/lib/types";
+
+type SessionEntry = { order: Order; productLabel: string; totalQty: number };
 import {
   computeDeliveryEstimate,
   formatDelayRange,
@@ -21,8 +23,12 @@ interface Props {
   productLabel: string;
   /** "Voir la commande" → page commande. */
   onViewOrder: () => void;
-  /** "Créer une autre commande" → reset + retour. */
+  /** "Créer une autre commande" → reset complet + retour. */
   onCreateAnother: () => void;
+  /** "Ajouter un article" → conserve le client, réinitialise seulement la ligne. */
+  onAddAnotherItem?: () => void;
+  /** Tous les articles créés durant cette session (le courant inclus). */
+  sessionEntries?: SessionEntry[];
   /** Optionnel : "Passer au Studio BAT" pour les commandes textile. */
   onStudioBat?: () => void;
 }
@@ -41,10 +47,15 @@ export const SubmissionSummary = memo(function SubmissionSummary({
   clientName,
   isUrgent,
   productLabel,
+  sessionEntries,
   onViewOrder,
+  onAddAnotherItem,
   onCreateAnother,
   onStudioBat,
 }: Props) {
+  const previousEntries = sessionEntries
+    ? sessionEntries.filter((e) => e.order.id !== order.id)
+    : [];
   const estimate = useMemo(
     () => computeDeliveryEstimate(categoryId, totalQty, isUrgent),
     [categoryId, totalQty, isUrgent],
@@ -118,6 +129,30 @@ export const SubmissionSummary = memo(function SubmissionSummary({
           </div>
         </div>
 
+        {/* Session cart — commandes précédentes pour ce client */}
+        {previousEntries.length > 0 && (
+          <div className="border-b border-slate-100 px-6 py-4 sm:px-8">
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Déjà commandé pour ce client
+            </div>
+            <ul className="space-y-1.5">
+              {previousEntries.map((e) => (
+                <li key={e.order.id} className="flex items-center gap-2 text-[12px] text-slate-700">
+                  <span className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                    <CheckSmallIcon />
+                  </span>
+                  <span className="font-mono font-semibold text-slate-500">{e.order.reference}</span>
+                  <span className="text-slate-400">·</span>
+                  <span>{e.productLabel}</span>
+                  {e.totalQty > 0 && (
+                    <span className="ml-auto text-slate-400">{e.totalQty} pcs</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex flex-col gap-2 px-6 py-5 sm:flex-row sm:items-center sm:justify-end sm:px-8">
           <button
@@ -125,8 +160,18 @@ export const SubmissionSummary = memo(function SubmissionSummary({
             onClick={onCreateAnother}
             className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
-            Créer une autre commande
+            Nouvelle commande
           </button>
+          {onAddAnotherItem && (
+            <button
+              type="button"
+              onClick={onAddAnotherItem}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Ajouter un article
+            </button>
+          )}
           {onStudioBat && (
             <button
               type="button"
@@ -134,7 +179,7 @@ export const SubmissionSummary = memo(function SubmissionSummary({
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-800 transition hover:bg-slate-50"
             >
               <BatIcon className="h-4 w-4" />
-              Préparer le BAT maintenant
+              Préparer le BAT
             </button>
           )}
           <button
@@ -190,6 +235,23 @@ function ArrowRight({ className }: { className?: string }) {
     >
       <line x1="5" y1="12" x2="19" y2="12" />
       <polyline points="12 5 19 12 12 19" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function CheckSmallIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }

@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Order } from "@/lib/types";
+
+type SessionEntry = { order: Order; productLabel: string; totalQty: number };
 import { useCreateOrder } from "@/hooks/useOrders";
 import { useSearchOrCreateClient } from "@/hooks/useCreateClientOrSearch";
 import { generateReference } from "@/lib/utils";
@@ -61,6 +63,7 @@ export function OrderForm({
   const setStep = useNewOrderStore((s) => s.setStep);
   const validateStep = useNewOrderStore((s) => s.validateStep);
   const reset = useNewOrderStore((s) => s.reset);
+  const resetLine = useNewOrderStore((s) => s.resetLine);
   const clearLine = useNewOrderStore((s) => s.clearLine);
 
   const createOrder = useCreateOrder();
@@ -85,6 +88,8 @@ export function OrderForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [flowStep, setFlowStep] = useState<FlowStep>("form");
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  /** Commandes créées durant cette session client (accumulées jusqu'au reset complet). */
+  const [sessionEntries, setSessionEntries] = useState<SessionEntry[]>([]);
   /** Snapshot kept after successful creation to render the SubmissionSummary
    *  without redirecting. The store is reset, but we need stable values for the
    *  recap (client name, qty, category) to survive after reset. */
@@ -196,25 +201,31 @@ export function OrderForm({
             ? currentLine.modelName || "Textile"
             : "—";
         const categoryId = deriveCategoryId(currentLine);
-        setSubmissionSnapshot({
+        const snapshot = {
           clientName,
           productLabel,
           totalQty: totals.totalQty,
           isUrgent: usedHeader.isUrgent,
           categoryId,
-        });
+        };
+        setSubmissionSnapshot(snapshot);
         setCreatedOrder(order);
+        setSessionEntries((prev) => [
+          ...prev,
+          { order, productLabel, totalQty: totals.totalQty },
+        ]);
 
         setFlowStep("form");
         setPendingAction(null);
-        reset(); // also clears persisted draft + resets step to 1
+        // Keep header intact so the operator can add another article for the same client.
+        resetLine();
       } catch (err) {
         setSubmitError(err instanceof Error ? err.message : "Erreur");
       } finally {
         setSubmitting(false);
       }
     },
-    [buildLinesPayload, createOrder, searchClient, onCreated, reset],
+    [buildLinesPayload, createOrder, searchClient, onCreated, resetLine],
   );
 
   /** Step navigation: validate current step, then advance. */
@@ -286,10 +297,20 @@ export function OrderForm({
     else onCreated?.(createdOrder.id);
   }, [createdOrder, onStudioBatForOrder, onCreated]);
 
+  /** "Ajouter un autre article" — conserve le client, réinitialise uniquement la ligne. */
+  const handleAddAnotherItem = useCallback(() => {
+    setCreatedOrder(null);
+    setSubmissionSnapshot(null);
+    // The store is already at step 1 with line = null and header intact (set by resetLine in doCreate).
+  }, []);
+
+  /** "Nouvelle commande" — réinitialisation complète (client + ligne + session). */
   const handleCreateAnother = useCallback(() => {
     setCreatedOrder(null);
     setSubmissionSnapshot(null);
-  }, []);
+    setSessionEntries([]);
+    reset();
+  }, [reset]);
 
   const lineError = useMemo(() => errors.line ?? undefined, [errors.line]);
   const isTextile = !!line && isTextileLine(line);
@@ -385,7 +406,24 @@ export function OrderForm({
   const step3Totals = useMemo(() => computeTotals(line), [line]);
 
   const step3Content = (
-    <div className="space-y-7">
+    <div
+      className="space-y-7"
+      onKeyDown={(e) => {
+        // Enter from any input/select in step 3 → submit. Excludes textarea
+        // (multi-line) and buttons (default activate behaviour).
+        if (e.key !== "Enter" || e.defaultPrevented) return;
+        const t = e.target as HTMLElement;
+        if (
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "BUTTON" ||
+          t.getAttribute("role") === "combobox" ||
+          t.getAttribute("role") === "option"
+        )
+          return;
+        e.preventDefault();
+        handleSubmitFinal();
+      }}
+    >
       <OrderHeaderFields
         errors={errors}
         onFieldBlur={handleHeaderBlur}
@@ -399,7 +437,7 @@ export function OrderForm({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Spécifications, contraintes de production…"
           rows={3}
-          className="block w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-100"
+          className="block w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-100"
         />
       </Section>
     </div>
@@ -414,7 +452,9 @@ export function OrderForm({
         clientName={submissionSnapshot.clientName}
         productLabel={submissionSnapshot.productLabel}
         isUrgent={submissionSnapshot.isUrgent}
+        sessionEntries={sessionEntries}
         onViewOrder={handleViewOrder}
+        onAddAnotherItem={handleAddAnotherItem}
         onCreateAnother={handleCreateAnother}
         onStudioBat={
           submissionSnapshot.categoryId === "textile"
@@ -452,6 +492,10 @@ export function OrderForm({
             </div>
           </header>
 
+          {sessionEntries.length > 0 && (
+            <SessionCartBanner entries={sessionEntries} />
+          )}
+
           <FormWizard
             step1={step1Content}
             step2={step2Content}
@@ -462,7 +506,41 @@ export function OrderForm({
           />
 
           {submitError && (
-            <p className="mt-3 text-right text-xs text-rose-600">{submitError}</p>
+            <div
+              role="alert"
+              className="mt-4 flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-3"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="mt-0.5 h-5 w-5 flex-none text-rose-700"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-snug text-rose-900">
+                  Échec de la création — la saisie est conservée
+                </div>
+                <div className="mt-0.5 text-[12px] leading-relaxed text-rose-800">
+                  {submitError}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleConfirmCreate}
+                disabled={submitting}
+                className="inline-flex h-9 flex-none items-center gap-1.5 rounded-md bg-rose-700 px-3 text-[12px] font-semibold text-white transition hover:bg-rose-800 disabled:opacity-60"
+              >
+                {submitting ? "Envoi…" : "Réessayer"}
+              </button>
+            </div>
           )}
         </div>
 
@@ -500,6 +578,35 @@ export function OrderForm({
   );
 }
 
+// ───────── Session cart banner ─────────
+
+function SessionCartBanner({ entries }: { entries: SessionEntry[] }) {
+  return (
+    <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+      <div className="flex items-center gap-2">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
+          {entries.length}
+        </span>
+        <span className="text-[12px] font-semibold text-emerald-900">
+          {entries.length === 1
+            ? "1 article déjà commandé pour ce client"
+            : `${entries.length} articles déjà commandés pour ce client`}
+        </span>
+      </div>
+      <ul className="mt-2 space-y-1 pl-7">
+        {entries.map((e) => (
+          <li key={e.order.id} className="text-[11px] text-emerald-800">
+            <span className="font-mono font-semibold">{e.order.reference}</span>
+            {" · "}
+            {e.productLabel}
+            {e.totalQty > 0 && <> · {e.totalQty} pcs</>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ───────── Local helpers ─────────
 
 function SansLogoToggle({
@@ -523,14 +630,14 @@ function SansLogoToggle({
       <div>
         <div className="text-sm font-semibold">Sans logo</div>
         <div
-          className={`text-[11px] ${isNoLogo ? "text-slate-300" : "text-slate-500"}`}
+          className={`text-[12px] leading-relaxed ${isNoLogo ? "text-slate-300" : "text-slate-600"}`}
         >
           Aucun marquage — produit livré tel quel
         </div>
       </div>
       <span
-        className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-bold ${
-          isNoLogo ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500"
+        className={`inline-flex h-7 items-center rounded-full px-2.5 text-[12px] font-bold ${
+          isNoLogo ? "bg-white/15 text-white" : "bg-slate-100 text-slate-600"
         }`}
       >
         +0,00 €
