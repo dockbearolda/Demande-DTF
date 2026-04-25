@@ -1,31 +1,27 @@
-import { memo, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { computeTotals, formatEUR } from "../pricing";
 import { selectLine, useNewOrderStore } from "../store";
 import {
   isTextileLine,
-  type TextileColor,
-  type TextileItem,
+  type LineTotals,
   type TextileLine,
   type TextileSize,
 } from "../types";
 import { TEXTILE_MODELS } from "../constants";
 
 interface Props {
-  /** Restrict the picker to specific colors (typically the user-toggled set). */
+  /** Colors currently toggled on (swatch rail controls this). */
   activeColors: Set<string>;
-  /** Optional callback fired when user opts to add a color via the chip rail. */
   onAddColor?: (colorId: string) => void;
-  /** Optional callback fired when a color section is fully removed. */
   onRemoveColor?: (colorId: string) => void;
 }
 
 /**
- * SizeQuantityPicker
- * ------------------------------------------------------------
- * Row-based picker. Each color has its own list of [size ▾] [qty -/+] [🗑] rows
- * and an "+ Ajouter une taille" button. Total updates live and is shown at the
- * bottom of the picker.
+ * SizeQuantityPicker — grille couleurs × tailles
  *
- * Replaces the dense N×M color × size matrix with a more progressive flow.
+ * Remplace les accordéons "ajouter une taille" par une matrice unifiée :
+ *   lignes = couleurs sélectionnées, colonnes = tailles du modèle.
+ * Chaque cellule est un <input> numérique avec navigation clavier.
  */
 export const SizeQuantityPicker = memo(function SizeQuantityPicker({
   activeColors,
@@ -36,6 +32,10 @@ export const SizeQuantityPicker = memo(function SizeQuantityPicker({
   return <Inner line={line} activeColors={activeColors} onRemoveColor={onRemoveColor} />;
 });
 
+// ─────────────────────────────────────────────────────────────
+// Inner — the actual grid
+// ─────────────────────────────────────────────────────────────
+
 function Inner({
   line,
   activeColors,
@@ -45,9 +45,7 @@ function Inner({
   activeColors: Set<string>;
   onRemoveColor?: (colorId: string) => void;
 }) {
-  const addRow = useNewOrderStore((s) => s.addTextileRowForColor);
-  const patch = useNewOrderStore((s) => s.patchTextileItem);
-  const remove = useNewOrderStore((s) => s.removeTextileItem);
+  const upsert = useNewOrderStore((s) => s.upsertTextileItem);
 
   const model = useMemo(
     () => TEXTILE_MODELS.find((m) => m.id === line.modelId) ?? null,
@@ -59,28 +57,103 @@ function Inner({
     [model],
   );
 
-  const itemsByColor = useMemo(() => {
-    const map = new Map<string, TextileItem[]>();
-    for (const it of Object.values(line.items)) {
-      if (it.isPlaceholder) continue;
-      const arr = map.get(it.color) ?? [];
-      arr.push(it);
-      map.set(it.color, arr);
-    }
-    return map;
-  }, [line.items]);
+  const colorsOrdered = useMemo(
+    () => (model ? model.colors.filter((c) => activeColors.has(c.id)) : []),
+    [model, activeColors],
+  );
 
-  const grandTotal = useMemo(() => {
-    let t = 0;
-    for (const it of Object.values(line.items)) {
-      if (!it.isPlaceholder) t += it.qty || 0;
+  // ── Ref grid [row][col] for keyboard navigation ──
+  const refs = useRef<(HTMLInputElement | null)[][]>([]);
+
+  // Auto-focus first cell when a new color row appears
+  const prevColorIds = useRef<string[]>([]);
+  useEffect(() => {
+    const curr = colorsOrdered.map((c) => c.id);
+    const prev = prevColorIds.current;
+    if (curr.length > prev.length) {
+      const newId = curr.find((id) => !prev.includes(id));
+      if (newId !== undefined) {
+        const ri = curr.indexOf(newId);
+        requestAnimationFrame(() => refs.current[ri]?.[0]?.focus());
+      }
     }
-    return t;
-  }, [line.items]);
+    prevColorIds.current = curr;
+  }, [colorsOrdered]);
+
+  // ── Qty helpers — deterministic item ID: colorId__sizeId ──
+
+  const getQty = useCallback(
+    (colorId: string, sizeId: string): number =>
+      line.items[`${colorId}__${sizeId}`]?.qty ?? 0,
+    [line.items],
+  );
+
+  const setQty = useCallback(
+    (colorId: string, sizeId: string, rawQty: number) => {
+      upsert({
+        id: `${colorId}__${sizeId}`,
+        color: colorId,
+        size: sizeId,
+        qty: Math.max(0, rawQty || 0),
+      });
+    },
+    [upsert],
+  );
+
+  // ── Keyboard navigation ──
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>, ri: number, ci: number) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        // Same column, next row
+        if (ri + 1 < colorsOrdered.length) {
+          refs.current[ri + 1]?.[ci]?.focus();
+        }
+      }
+    },
+    [colorsOrdered.length],
+  );
+
+  // ── Remove color with confirmation when qty > 0 ──
+
+  const handleRemoveColor = useCallback(
+    (colorId: string, colorLabel: string) => {
+      const total = sortedSizes.reduce((s, sz) => s + getQty(colorId, sz.id), 0);
+      if (
+        total > 0 &&
+        !window.confirm(
+          `Retirer « ${colorLabel} » et effacer les ${total} pièce${total > 1 ? "s" : ""} ?`,
+        )
+      ) {
+        return;
+      }
+      onRemoveColor?.(colorId);
+    },
+    [sortedSizes, getQty, onRemoveColor],
+  );
+
+  // ── Derived totals ──
+
+  const rowTotals = useMemo(
+    () => colorsOrdered.map((c) => sortedSizes.reduce((s, sz) => s + getQty(c.id, sz.id), 0)),
+    // line.items changes trigger this via getQty
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [line.items, colorsOrdered, sortedSizes],
+  );
+
+  const colTotals = useMemo(
+    () => sortedSizes.map((sz) => colorsOrdered.reduce((s, c) => s + getQty(c.id, sz.id), 0)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [line.items, colorsOrdered, sortedSizes],
+  );
+
+  const grandTotal = colTotals.reduce((s, v) => s + v, 0);
+
+  const priceTotals = useMemo(() => computeTotals(line), [line]);
 
   if (!model) return null;
 
-  const colorsOrdered = model.colors.filter((c) => activeColors.has(c.id));
   if (colorsOrdered.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-xs text-slate-400">
@@ -91,251 +164,225 @@ function Inner({
 
   return (
     <div className="space-y-3">
-      {colorsOrdered.map((color) => {
-        const rows = itemsByColor.get(color.id) ?? [];
-        const total = rows.reduce((s, it) => s + (it.qty || 0), 0);
-        return (
-          <ColorSection
-            key={color.id}
-            color={color}
-            sizes={sortedSizes}
-            rows={rows}
-            total={total}
-            onAdd={() => addRow(color.id)}
-            onPatch={(id, p) => patch(id, p)}
-            onRemoveRow={(id) => remove(id)}
-            onRemoveColor={() => onRemoveColor?.(color.id)}
-          />
-        );
-      })}
+      {/* Matrix */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <table className="w-full border-collapse table-fixed">
+          {/* ── Header ── */}
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50">
+              <th
+                scope="col"
+                className="w-32 py-2 pl-3 pr-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500"
+              >
+                Couleur
+              </th>
+              {sortedSizes.map((sz) => (
+                <th
+                  key={sz.id}
+                  scope="col"
+                  className="px-1 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500"
+                >
+                  {sz.label}
+                </th>
+              ))}
+              <th
+                scope="col"
+                className="w-12 px-2 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500"
+              >
+                Total
+              </th>
+              <th scope="col" className="w-9" aria-label="Actions" />
+            </tr>
+          </thead>
 
+          {/* ── Body ── */}
+          <tbody>
+            {colorsOrdered.map((color, ri) => {
+              if (!refs.current[ri]) refs.current[ri] = [];
+              const rowTotal = rowTotals[ri] ?? 0;
+
+              return (
+                <tr key={color.id} className="border-b border-slate-100 last:border-b-0">
+                  {/* Color label + swatch */}
+                  <td className="py-2 pl-3 pr-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={`block h-5 w-5 flex-none rounded-full ${
+                          color.swatchBorder ? "ring-1 ring-slate-300" : ""
+                        }`}
+                        style={{ backgroundColor: color.hex }}
+                      />
+                      <span className="truncate text-sm font-semibold text-slate-900">
+                        {color.label}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Qty cells */}
+                  {sortedSizes.map((sz, ci) => {
+                    const qty = getQty(color.id, sz.id);
+                    const hasValue = qty > 0;
+                    return (
+                      <td key={sz.id} className="px-1 py-1.5">
+                        <input
+                          ref={(el) => {
+                            refs.current[ri][ci] = el;
+                          }}
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={hasValue ? qty : ""}
+                          placeholder="—"
+                          aria-label={`${color.label} · taille ${sz.label}`}
+                          onChange={(e) =>
+                            setQty(color.id, sz.id, Number(e.target.value) || 0)
+                          }
+                          onKeyDown={(e) => handleKeyDown(e, ri, ci)}
+                          className={[
+                            "block h-9 w-full rounded-md border text-center text-xs tabular-nums transition",
+                            "focus:outline-none focus-visible:outline focus-visible:outline-2",
+                            "focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600",
+                            hasValue
+                              ? "border-blue-600 bg-[#EFF6FF] font-bold text-blue-700"
+                              : "border-[#e5e2dc] bg-[#fafaf9] text-slate-300 placeholder:text-slate-300",
+                          ].join(" ")}
+                        />
+                      </td>
+                    );
+                  })}
+
+                  {/* Row subtotal */}
+                  <td className="px-2 py-2 text-right">
+                    <span
+                      className={`font-mono text-sm font-bold tabular-nums ${
+                        rowTotal > 0 ? "text-slate-900" : "text-slate-300"
+                      }`}
+                      aria-label={`Sous-total ${color.label} : ${rowTotal}`}
+                    >
+                      {rowTotal > 0 ? rowTotal : "—"}
+                    </span>
+                  </td>
+
+                  {/* Remove color */}
+                  <td className="py-1.5 pr-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveColor(color.id, color.label)}
+                      aria-label={`Retirer la couleur ${color.label}`}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    >
+                      <XIcon className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+
+          {/* ── Footer: column totals ── */}
+          <tfoot>
+            <tr className="border-t-2 border-slate-200 bg-slate-50">
+              <td className="py-2 pl-3 pr-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Total
+              </td>
+              {colTotals.map((total, i) => (
+                <td key={i} className="px-1 py-2 text-center">
+                  <span
+                    className={`font-mono text-sm font-bold tabular-nums ${
+                      total > 0 ? "text-slate-900" : "text-slate-300"
+                    }`}
+                  >
+                    {total > 0 ? total : "—"}
+                  </span>
+                </td>
+              ))}
+              {/* Grand total (bottom-right corner) */}
+              <td className="px-3 py-2 text-right">
+                <span className="font-mono text-base font-extrabold tabular-nums text-slate-900">
+                  {grandTotal > 0 ? grandTotal : "—"}
+                </span>
+              </td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Grand total pill */}
       <div className="flex items-center justify-between rounded-xl border-2 border-slate-900 bg-slate-900 px-4 py-3 text-white">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
           Total commande
         </span>
         <span className="font-mono text-lg font-extrabold tabular-nums">
-          {grandTotal} <span className="text-xs font-medium text-slate-300">pcs</span>
+          {grandTotal}{" "}
+          <span className="text-xs font-medium text-slate-300">pcs</span>
         </span>
       </div>
+
+      {/* Price bar */}
+      {grandTotal > 0 && <PriceBar totals={priceTotals} />}
     </div>
   );
 }
 
-// ───────── ColorSection ─────────
+// ─────────────────────────────────────────────────────────────
+// PriceBar
+// ─────────────────────────────────────────────────────────────
 
-function ColorSection({
-  color,
-  sizes,
-  rows,
-  total,
-  onAdd,
-  onPatch,
-  onRemoveRow,
-  onRemoveColor,
-}: {
-  color: TextileColor;
-  sizes: TextileSize[];
-  rows: TextileItem[];
-  total: number;
-  onAdd: () => void;
-  onPatch: (id: string, p: Partial<Omit<TextileItem, "id">>) => void;
-  onRemoveRow: (id: string) => void;
-  onRemoveColor?: () => void;
-}) {
+function PriceBar({ totals }: { totals: LineTotals }) {
+  const { totalQty, unitPrice, subtotal, nextTier, unitsToNextTier } = totals;
+  if (totalQty === 0 || unitPrice === 0) return null;
+
+  // Savings = (currentUnitPrice − nextTierUnitPrice) × currentQty
+  const savings =
+    unitsToNextTier !== null && nextTier
+      ? (unitPrice - nextTier.unitPrice) * totalQty
+      : null;
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            aria-hidden="true"
-            className={`block h-6 w-6 flex-none rounded-full ${
-              color.swatchBorder ? "ring-1 ring-slate-300" : ""
-            }`}
-            style={{ backgroundColor: color.hex }}
-          />
-          <span className="truncate text-sm font-semibold text-slate-900">
-            {color.label}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-            Sous-total
-          </span>
-          <span
-            className="font-mono text-sm font-bold tabular-nums text-slate-900"
-            aria-label={`Sous-total ${color.label} : ${total}`}
-          >
-            {total}
-          </span>
-          {onRemoveColor && (
-            <button
-              type="button"
-              onClick={onRemoveColor}
-              aria-label={`Retirer la couleur ${color.label}`}
-              className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-            >
-              <TrashIcon className="h-4 w-4" aria-hidden="true" />
-            </button>
+    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-bold text-blue-900">{formatEUR(subtotal)}</span>
+        <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[12px] font-bold text-blue-700">
+          {formatEUR(unitPrice)} / pcs
+        </span>
+      </div>
+      {unitsToNextTier !== null && nextTier && (
+        <p className="mt-1.5 text-[11px] leading-relaxed text-blue-700">
+          Ajoutez{" "}
+          <span className="font-bold">{unitsToNextTier} pcs</span>
+          {" → "}
+          {formatEUR(nextTier.unitPrice)}/u
+          {savings !== null && savings > 0 && (
+            <>
+              {" · "}Économie :{" "}
+              <span className="font-bold">{formatEUR(savings)}</span>
+            </>
           )}
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        {rows.length === 0 && (
-          <p className="rounded-md bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
-            Aucune taille — ajoute une ligne ci-dessous
-          </p>
-        )}
-        {rows.map((row) => (
-          <SizeQtyRow
-            key={row.id}
-            row={row}
-            sizes={sizes}
-            colorLabel={color.label}
-            onPatch={(p) => onPatch(row.id, p)}
-            onRemove={() => onRemoveRow(row.id)}
-          />
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={onAdd}
-        aria-label={`Ajouter une taille pour ${color.label}`}
-        className="mt-3 inline-flex h-11 min-w-[44px] items-center gap-1.5 rounded-lg border border-dashed border-slate-400 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-blue-500 hover:bg-blue-50 hover:text-blue-800 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-      >
-        <PlusIcon className="h-4 w-4" aria-hidden="true" />
-        Ajouter une taille
-      </button>
+        </p>
+      )}
     </div>
   );
 }
 
-// ───────── SizeQtyRow ─────────
+// ─────────────────────────────────────────────────────────────
+// Icon
+// ─────────────────────────────────────────────────────────────
 
-function SizeQtyRow({
-  row,
-  sizes,
-  colorLabel,
-  onPatch,
-  onRemove,
-}: {
-  row: TextileItem;
-  sizes: TextileSize[];
-  colorLabel: string;
-  onPatch: (p: Partial<Omit<TextileItem, "id">>) => void;
-  onRemove: () => void;
-}) {
-  const dec = () => onPatch({ qty: Math.max(0, (row.qty || 0) - 1) });
-  const inc = () => onPatch({ qty: (row.qty || 0) + 1 });
-  const sizeLabel = sizes.find((s) => s.id === row.size)?.label ?? row.size;
-  const targetLabel = `${colorLabel} · taille ${sizeLabel}`;
-
+function XIcon({ className }: { className?: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
-      {/* Size dropdown — 44px height for tap target & 16px font */}
-      <div className="relative flex-1 min-w-0 max-w-[160px]">
-        <select
-          value={row.size}
-          aria-label={`Taille pour ${colorLabel}`}
-          onChange={(e) => onPatch({ size: e.target.value })}
-          className="block h-11 w-full appearance-none rounded-md border border-slate-300 bg-white pl-3 pr-8 text-base font-medium text-slate-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        >
-          {sizes.map((sz) => (
-            <option key={sz.id} value={sz.id}>
-              Taille {sz.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
-      </div>
-
-      {/* Quantity stepper — 44×44 buttons */}
-      <div
-        className={`inline-flex items-stretch overflow-hidden rounded-md border bg-white ${
-          row.qty > 0 ? "border-blue-700" : "border-slate-300"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={dec}
-          aria-label={`Diminuer la quantité — ${targetLabel}`}
-          disabled={row.qty <= 0}
-          className="flex h-11 w-11 items-center justify-center text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <MinusIcon className="h-4 w-4" aria-hidden="true" />
-        </button>
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          value={row.qty || ""}
-          aria-label={`Quantité — ${targetLabel}`}
-          onChange={(e) =>
-            onPatch({ qty: Math.max(0, Number(e.target.value) || 0) })
-          }
-          placeholder="0"
-          className={`h-11 w-14 border-l border-r border-slate-300 bg-transparent text-center text-base tabular-nums focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600 ${
-            row.qty > 0 ? "font-bold text-blue-800" : "font-semibold text-slate-800"
-          }`}
-        />
-        <button
-          type="button"
-          onClick={inc}
-          aria-label={`Augmenter la quantité — ${targetLabel}`}
-          className="flex h-11 w-11 items-center justify-center text-slate-700 transition hover:bg-slate-100 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600"
-        >
-          <PlusIcon className="h-4 w-4" aria-hidden="true" />
-        </button>
-      </div>
-
-      {/* Trash — 44×44 */}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Supprimer la ligne — ${targetLabel}`}
-        className="ml-auto flex h-11 w-11 flex-none items-center justify-center rounded-md text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-      >
-        <TrashIcon className="h-4 w-4" aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
-// ───────── Icons ─────────
-
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}
-
-function MinusIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}
-
-function TrashIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" />
-      <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
-function ChevronDown({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }
