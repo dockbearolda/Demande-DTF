@@ -41,6 +41,7 @@ function blankLine(secteur: Secteur): OrderLine {
         sleeves: null,
         skipped: false,
       },
+      logoPlacement: null,
     };
   }
   return {
@@ -54,8 +55,17 @@ function blankLine(secteur: Secteur): OrderLine {
 
 // ───────── Store shape ─────────
 
+export type WizardStep = 1 | 2 | 3;
+
 interface NewOrderState {
   draft: OrderDraft;
+  currentStep: WizardStep;
+
+  // Wizard navigation
+  setStep: (step: WizardStep) => void;
+  goNextStep: () => void;
+  goPrevStep: () => void;
+  validateStep: (step: WizardStep) => ValidationResult;
 
   // Header actions (never touch line)
   setHeader: (patch: Partial<OrderHeader>) => void;
@@ -82,10 +92,14 @@ interface NewOrderState {
   addPlaceholderItem: () => void;
   /** Append a new row (default color/size from current model). Returns new id. */
   addTextileRow: () => string | null;
+  /** Append a new row for a specific color (default size = first unused). Returns id. */
+  addTextileRowForColor: (colorId: string) => string | null;
   /** Patch a given row in-place (size, color, qty). */
   patchTextileItem: (id: string, patch: Partial<Omit<TextileItem, "id">>) => void;
+  setLogoPlacement: (placement: "front-heart" | "front-center" | "back" | "front-back" | null) => void;
 
   // Lifecycle
+  clearLine: () => void;
   reset: () => void;
   validate: () => ValidationResult;
 }
@@ -101,26 +115,134 @@ function currentSecteur(line: OrderLine | null): Secteur | null {
   return isClassicLine(line) ? line.secteur : "Textiles";
 }
 
+// ───────── Persistence ─────────
+
+const STORAGE_KEY = "dtf:new-order:draft";
+
+interface PersistedShape {
+  draft: OrderDraft;
+  currentStep: WizardStep;
+}
+
+function loadPersisted(): PersistedShape | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedShape;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed.draft || typeof parsed.draft !== "object") return null;
+    if (![1, 2, 3].includes(parsed.currentStep)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function savePersisted(state: PersistedShape) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore quota / serialization errors
+  }
+}
+
+function clearPersisted() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// ───────── Per-step validation ─────────
+
+function validateLineStep(line: OrderLine | null): ValidationResult {
+  const fieldErrors: ValidationResult["fieldErrors"] = {};
+  if (!line) {
+    fieldErrors.secteur = "Catégorie requise";
+  } else if (isClassicLine(line)) {
+    const produit = line.customProduit?.trim() || line.produit;
+    if (!produit) fieldErrors.line = "Produit requis";
+    else if (!line.quantity || line.quantity <= 0)
+      fieldErrors.line = "Quantité requise";
+  } else if (isTextileLine(line)) {
+    if (!line.modelId) fieldErrors.line = "Modèle requis";
+    else {
+      const hasItems = Object.values(line.items).some(
+        (it) => !it.isPlaceholder && it.qty > 0,
+      );
+      if (!hasItems) fieldErrors.line = "Ajouter au moins une taille avec quantité";
+    }
+  }
+  return { ok: Object.keys(fieldErrors).length === 0, fieldErrors };
+}
+
+function validateCustomizationStep(_line: OrderLine | null): ValidationResult {
+  // Step 2 is always valid: logoPlacement defaults to null = "Sans logo"
+  return { ok: true, fieldErrors: {} };
+}
+
+function validateDeliveryStep(header: OrderHeader): ValidationResult {
+  const fieldErrors: ValidationResult["fieldErrors"] = {};
+  if (!header.clientNom.trim()) fieldErrors.clientNom = "Client requis";
+  if (!header.assignedTo) fieldErrors.assignedTo = "Opérateur requis";
+  return { ok: Object.keys(fieldErrors).length === 0, fieldErrors };
+}
+
 // ───────── Store ─────────
 
+const persisted = loadPersisted();
+const INITIAL_DRAFT: OrderDraft = persisted?.draft ?? { header: EMPTY_HEADER, line: null };
+const INITIAL_STEP: WizardStep = persisted?.currentStep ?? 1;
+
 export const useNewOrderStore = create<NewOrderState>((set, get) => ({
-  draft: { header: EMPTY_HEADER, line: null },
+  draft: INITIAL_DRAFT,
+  currentStep: INITIAL_STEP,
+
+  setStep: (step) => set({ currentStep: step }),
+
+  goNextStep: () => {
+    const { currentStep } = get();
+    if (currentStep < 3) set({ currentStep: (currentStep + 1) as WizardStep });
+  },
+
+  goPrevStep: () => {
+    const { currentStep } = get();
+    if (currentStep > 1) set({ currentStep: (currentStep - 1) as WizardStep });
+  },
+
+  validateStep: (step) => {
+    const { draft } = get();
+    if (step === 1) return validateLineStep(draft.line);
+    if (step === 2) return validateCustomizationStep(draft.line);
+    return validateDeliveryStep(draft.header);
+  },
 
   setHeader: (patch) =>
     set((s) => ({ draft: { ...s.draft, header: { ...s.draft.header, ...patch } } })),
 
   setClient: (id, nom, telephone) =>
-    set((s) => ({
-      draft: {
-        ...s.draft,
-        header: {
-          ...s.draft.header,
-          clientId: id,
-          clientNom: nom,
-          telephone: telephone ?? s.draft.header.telephone,
+    set((s) => {
+      const prev = s.draft.header;
+      // Auto-fill personneContact with client name when empty/blank or when matching prior client name.
+      const shouldAutofillContact =
+        !prev.personneContact.trim() || prev.personneContact === prev.clientNom;
+      return {
+        draft: {
+          ...s.draft,
+          header: {
+            ...prev,
+            clientId: id,
+            clientNom: nom,
+            telephone: telephone ?? prev.telephone,
+            personneContact: shouldAutofillContact ? nom : prev.personneContact,
+          },
         },
-      },
-    })),
+      };
+    }),
 
   setAssignedTo: (v) =>
     set((s) => ({ draft: { ...s.draft, header: { ...s.draft.header, assignedTo: v } } })),
@@ -266,6 +388,35 @@ export const useNewOrderStore = create<NewOrderState>((set, get) => ({
     return id;
   },
 
+  addTextileRowForColor: (colorId) => {
+    const state = get();
+    const line = state.draft.line;
+    if (!line || !isTextileLine(line)) return null;
+    const model = TEXTILE_MODELS.find((m) => m.id === line.modelId);
+    if (!model) return null;
+    const sortedSizes = [...model.sizes].sort((a, b) => a.order - b.order);
+    const usedSizes = new Set(
+      Object.values(line.items)
+        .filter((it) => it.color === colorId && !it.isPlaceholder)
+        .map((it) => it.size),
+    );
+    const nextSize =
+      sortedSizes.find((sz) => !usedSizes.has(sz.id))?.id ?? sortedSizes[0]?.id ?? "";
+    const id = genId();
+    const item: TextileItem = {
+      id,
+      size: nextSize,
+      color: colorId,
+      qty: 1,
+    };
+    set((s) => {
+      const l = s.draft.line;
+      if (!l || !isTextileLine(l)) return s;
+      return { draft: { ...s.draft, line: { ...l, items: { ...l.items, [id]: item } } } };
+    });
+    return id;
+  },
+
   patchTextileItem: (id, patch) =>
     set((s) => {
       const line = s.draft.line;
@@ -276,8 +427,20 @@ export const useNewOrderStore = create<NewOrderState>((set, get) => ({
       return { draft: { ...s.draft, line: { ...line, items: { ...line.items, [id]: next } } } };
     }),
 
-  reset: () =>
-    set({ draft: { header: EMPTY_HEADER, line: null } }),
+  setLogoPlacement: (placement) =>
+    set((s) => {
+      const line = s.draft.line;
+      if (!line || !isTextileLine(line)) return s;
+      return { draft: { ...s.draft, line: { ...line, logoPlacement: placement } } };
+    }),
+
+  clearLine: () =>
+    set((s) => ({ draft: { ...s.draft, line: null } })),
+
+  reset: () => {
+    clearPersisted();
+    set({ draft: { header: EMPTY_HEADER, line: null }, currentStep: 1 });
+  },
 
   validate: () => {
     const { header, line } = get().draft;
@@ -300,8 +463,17 @@ export const useNewOrderStore = create<NewOrderState>((set, get) => ({
   },
 }));
 
+// ───────── Persistence subscription ─────────
+// Persist draft + currentStep on every change. Cheap: localStorage write is sync but small.
+if (typeof window !== "undefined") {
+  useNewOrderStore.subscribe((state) => {
+    savePersisted({ draft: state.draft, currentStep: state.currentStep });
+  });
+}
+
 // ───────── Scoped selectors (évitent re-renders inutiles) ─────────
 
 export const selectHeader = (s: NewOrderState) => s.draft.header;
 export const selectLine = (s: NewOrderState) => s.draft.line;
 export const selectSecteur = (s: NewOrderState) => currentSecteur(s.draft.line);
+export const selectStep = (s: NewOrderState) => s.currentStep;

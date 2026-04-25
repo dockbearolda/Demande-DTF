@@ -2,16 +2,84 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useClients } from "@/hooks/useClients";
 import { formatPhoneNumber } from "@/lib/utils";
 import type { Client } from "@/lib/types";
-import { OPERATEURS } from "../constants";
+import { OPERATEURS, type ProductCategoryId } from "../constants";
 import { selectHeader, useNewOrderStore } from "../store";
 import type { OperatorValue, ValidationResult } from "../types";
-import { Input, PillButton, Section } from "./primitives";
+import { IOSSwitch, Input, Section, SegmentedControl } from "./primitives";
+import {
+  checkRequestedDate,
+  computeDeliveryEstimate,
+} from "../constants/delivery";
 
 interface Props {
   errors: ValidationResult["fieldErrors"];
+  /** Called when user leaves a field — lets parent run inline validation. */
+  onFieldBlur?: (field: "clientNom" | "assignedTo") => void;
+  /** Category currently selected (used to compute the date feasibility hint). */
+  categoryId?: ProductCategoryId | null;
+  /** Total quantity in the current line (for the date hint). */
+  totalQty?: number;
 }
 
-export function OrderHeaderFields({ errors }: Props) {
+function DotIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 8 8" aria-hidden="true">
+      <circle cx="4" cy="4" r="4" fill="currentColor" />
+    </svg>
+  );
+}
+
+function DateFeasibilityHint({
+  dateIso,
+  categoryId,
+  totalQty,
+  isUrgent,
+}: {
+  dateIso: string;
+  categoryId: ProductCategoryId | null;
+  totalQty: number;
+  isUrgent: boolean;
+}) {
+  if (!dateIso || !categoryId || totalQty <= 0) return null;
+  const estimate = computeDeliveryEstimate(categoryId, totalQty, isUrgent);
+  const status = checkRequestedDate(dateIso, estimate);
+  if (!status) return null;
+
+  if (status === "ok") {
+    return (
+      <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
+        <DotIcon className="h-2 w-2 text-emerald-600" />
+        Date atteignable selon le délai estimé.
+      </p>
+    );
+  }
+  if (status === "tight") {
+    return (
+      <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-amber-700">
+        <DotIcon className="h-2 w-2 text-amber-600" />
+        Date serrée — proche de la borne minimale du délai estimé.
+      </p>
+    );
+  }
+  const earliest = new Date(estimate.earliestIso).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+  });
+  return (
+    <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-rose-700">
+      <DotIcon className="h-2 w-2 text-rose-600" />
+      Date non atteignable. Plus tôt possible : {earliest}
+      {isUrgent ? "" : " (sans urgence)"}.
+    </p>
+  );
+}
+
+export function OrderHeaderFields({
+  errors,
+  onFieldBlur,
+  categoryId = null,
+  totalQty = 0,
+}: Props) {
   const header = useNewOrderStore(selectHeader);
   const setHeader = useNewOrderStore((s) => s.setHeader);
   const setClient = useNewOrderStore((s) => s.setClient);
@@ -23,25 +91,28 @@ export function OrderHeaderFields({ errors }: Props) {
 
   return (
     <>
-      <Section label="Client" required error={errors.clientNom}>
+      <Section label="Client" name="clientNom" required error={errors.clientNom}>
         <ClientAutocomplete
           value={header.clientNom}
           onChange={(v) => setHeader({ clientNom: v, clientId: null })}
           onSelect={(c) => setClient(c.id, c.nom, c.telephone ?? undefined)}
+          onBlurValidate={() => onFieldBlur?.("clientNom")}
           clients={clients}
           invalid={!!errors.clientNom}
+          fieldId="field-clientNom"
+          errorId="field-clientNom-error"
         />
       </Section>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Section label="Personne à joindre">
+        <Section label="Personne à joindre" name="personneContact">
           <Input
             value={header.personneContact}
             onChange={(v) => setHeader({ personneContact: v })}
             placeholder="Optionnel"
           />
         </Section>
-        <Section label="Téléphone">
+        <Section label="Téléphone" name="telephone">
           <Input
             value={header.telephone}
             onChange={(v) => setHeader({ telephone: formatPhoneNumber(v) })}
@@ -51,51 +122,59 @@ export function OrderHeaderFields({ errors }: Props) {
         </Section>
       </div>
 
-      <Section label="Assigné à" required error={errors.assignedTo}>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Assigné à">
-          {OPERATEURS.map((op) => {
-            const sel = header.assignedTo === op.value;
-            return (
-              <PillButton
-                key={op.value}
-                selected={sel}
-                onClick={() => setAssignedTo(op.value as OperatorValue)}
-              >
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
-                    sel ? "bg-white/20 text-white" : "bg-slate-800 text-white"
-                  }`}
-                >
-                  {op.initial}
-                </span>
-                <span>{op.name}</span>
-              </PillButton>
-            );
-          })}
-        </div>
+      <Section
+        label="Assigné à"
+        name="assignedTo"
+        required
+        error={errors.assignedTo}
+      >
+        <SegmentedControl
+          ariaLabel="Assigné à"
+          ariaDescribedBy={errors.assignedTo ? "field-assignedTo-error" : undefined}
+          size="lg"
+          value={header.assignedTo ?? null}
+          onChange={(v) => {
+            setAssignedTo(v as OperatorValue);
+            onFieldBlur?.("assignedTo");
+          }}
+          options={OPERATEURS.map((op) => ({
+            value: op.value,
+            label: op.name,
+          }))}
+        />
       </Section>
 
       <Section label="Date de livraison">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
           <DateField value={header.dateLivraison} onChange={setDateLivraison} />
-          <button
-            type="button"
-            onClick={toggleUrgent}
-            aria-pressed={header.isUrgent}
-            className={`inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition ${
+          <div
+            className={`inline-flex h-11 items-center justify-between gap-3 rounded-lg border px-3 transition ${
               header.isUrgent
-                ? "border-rose-300 bg-rose-50 text-rose-700"
-                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                ? "border-rose-200 bg-rose-50"
+                : "border-slate-200 bg-white"
             }`}
           >
             <span
-              className={`block h-2 w-2 rounded-full ${
-                header.isUrgent ? "bg-rose-500 ring-4 ring-rose-200" : "bg-slate-300"
+              className={`text-sm font-medium ${
+                header.isUrgent ? "text-rose-700" : "text-slate-600"
               }`}
+            >
+              Urgent
+            </span>
+            <IOSSwitch
+              checked={header.isUrgent}
+              onChange={() => toggleUrgent()}
+              ariaLabel="Marquer comme urgent"
+              variant="danger"
             />
-            Urgent
-          </button>
+          </div>
         </div>
+        <DateFeasibilityHint
+          dateIso={header.dateLivraison}
+          categoryId={categoryId}
+          totalQty={totalQty}
+          isUrgent={header.isUrgent}
+        />
       </Section>
     </>
   );
@@ -121,18 +200,25 @@ function ClientAutocomplete({
   value,
   onChange,
   onSelect,
+  onBlurValidate,
   clients,
   invalid,
+  fieldId,
+  errorId,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSelect: (c: Client) => void;
+  onBlurValidate?: () => void;
   clients: Client[];
   invalid?: boolean;
+  fieldId: string;
+  errorId: string;
 }) {
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listboxId = `${fieldId}-listbox`;
 
   const matches = useMemo(() => {
     if (!value.trim()) return clients.slice(0, 8);
@@ -159,13 +245,25 @@ function ClientAutocomplete({
   return (
     <div ref={containerRef} className="relative">
       <input
+        id={fieldId}
         type="text"
+        role="combobox"
+        autoComplete="off"
+        aria-autocomplete="list"
+        aria-expanded={open && matches.length > 0}
+        aria-controls={listboxId}
+        aria-activedescendant={
+          open && matches[hi] ? `${listboxId}-opt-${matches[hi].id}` : undefined
+        }
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? errorId : undefined}
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onBlur={() => onBlurValidate?.()}
         onKeyDown={(e) => {
           if (!open) return;
           if (e.key === "ArrowDown") {
@@ -183,22 +281,25 @@ function ClientAutocomplete({
           }
         }}
         placeholder="Commencer à taper le nom du client…"
-        aria-invalid={invalid || undefined}
-        className={`block h-12 w-full rounded-lg border bg-white px-4 text-base text-slate-800 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 ${
+        // text-base = 16px → no iOS zoom on focus.
+        className={`block h-12 w-full rounded-lg border bg-white px-4 text-base text-slate-900 placeholder:text-slate-500 transition focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
           invalid
-            ? "border-rose-400 focus:border-rose-500 focus:ring-rose-100"
-            : "border-slate-200 focus:border-slate-400 focus:ring-slate-100"
+            ? "border-rose-500 focus:border-rose-600"
+            : "border-slate-300 focus:border-slate-500"
         }`}
       />
 
       {open && matches.length > 0 && (
         <ul
+          id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-80 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+          aria-label="Clients suggérés"
+          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-80 overflow-auto rounded-xl border border-slate-300 bg-white p-1 shadow-xl"
         >
           {matches.map((c, i) => (
             <li
               key={c.id}
+              id={`${listboxId}-opt-${c.id}`}
               role="option"
               aria-selected={i === hi}
               onMouseDown={(e) => {
@@ -212,13 +313,14 @@ function ClientAutocomplete({
               }`}
             >
               <span
+                aria-hidden="true"
                 className={`flex h-9 w-9 flex-none items-center justify-center rounded-full text-sm font-bold text-white ${avatarColor(c.nom)}`}
               >
                 {clientInitial(c.nom)}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-slate-800">{c.nom}</div>
-                <div className="truncate text-xs text-slate-500">
+                <div className="truncate text-sm font-semibold text-slate-900">{c.nom}</div>
+                <div className="truncate text-xs text-slate-700">
                   {c.email ?? "—"}
                   {c.telephone ? ` · ${c.telephone}` : ""}
                 </div>
@@ -279,37 +381,45 @@ function DateField({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-left text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-100"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={value ? `Date de livraison : ${display}` : "Sélectionner une date de livraison"}
+        className="flex h-12 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 text-left text-base text-slate-900 hover:bg-slate-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
         <span className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-slate-400" />
-          <span className={value ? "text-slate-800" : "text-slate-400"}>{display}</span>
+          <CalendarIcon className="h-4 w-4 text-slate-700" aria-hidden="true" />
+          <span className={value ? "text-slate-900" : "text-slate-600"}>{display}</span>
         </span>
         {value && (
-          <span
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onChange("");
             }}
-            className="text-xs text-slate-400 hover:text-slate-600"
+            aria-label="Effacer la date"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-700 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
-            ✕
-          </span>
+            <span aria-hidden="true">✕</span>
+          </button>
         )}
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-[280px] rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+        <div
+          role="dialog"
+          aria-label="Sélecteur de date"
+          className="absolute left-0 top-full z-30 mt-2 w-[280px] rounded-xl border border-slate-300 bg-white p-3 shadow-xl"
+        >
           <input
             type="date"
             value={value}
+            aria-label="Date de livraison"
             onChange={(e) => onChange(e.target.value)}
-            className="block w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-100"
+            className="block h-11 w-full rounded-md border border-slate-300 px-2 py-1.5 text-base text-slate-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           />
           <div className="mt-3">
-            <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-700">
               Raccourcis
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -321,14 +431,14 @@ function DateField({
                     onChange(addDays(today, s.days));
                     setOpen(false);
                   }}
-                  className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium transition ${
+                  className={`inline-flex h-9 items-center gap-1 rounded-full px-3 text-sm font-semibold transition focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
                     s.danger
-                      ? "bg-rose-50 text-rose-700 hover:bg-rose-100"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      ? "bg-rose-100 text-rose-800 hover:bg-rose-200"
+                      : "bg-slate-100 text-slate-800 hover:bg-slate-200"
                   }`}
                 >
                   {s.danger && (
-                    <span className="block h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    <span aria-hidden="true" className="block h-1.5 w-1.5 rounded-full bg-rose-700" />
                   )}
                   {s.label}
                 </button>

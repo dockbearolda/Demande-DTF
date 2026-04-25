@@ -1,34 +1,44 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TEXTILE_MODELS } from "../constants";
 import { selectLine, useNewOrderStore } from "../store";
-import { isTextileLine, type TextileLine, type Target } from "../types";
-import { Section } from "./primitives";
-import { SizeColorTable } from "./SizeColorTable";
+import {
+  isTextileLine,
+  type TextileColor,
+  type TextileLine,
+} from "../types";
+import { Section, SegmentedControl } from "./primitives";
+import { SizeQuantityPicker } from "./SizeQuantityPicker";
 
 interface Props {
   error?: string;
-  onStudioBat?: () => void;
 }
 
-const TARGET_LABEL: Record<Target, string> = {
-  HOMME: "Homme",
-  FEMME: "Femme",
-  ENFANT: "Enfant",
-};
+const MODEL_FAMILIES: { key: string; label: string; sub?: string }[] = [
+  { key: "T-shirt ECO", label: "ECO", sub: "Entrée de gamme" },
+  { key: "T-shirt Classic", label: "Classic", sub: "Standard" },
+  { key: "Premium", label: "Premium", sub: "Haut de gamme" },
+];
 
-export function TextileOrderFields({ error, onStudioBat }: Props) {
+/**
+ * Step 1 content for textile flow:
+ *   Genre → Modèle → Couleurs → Tailles/Quantités
+ *
+ * Logo placement + Studio BAT have moved to Step 2 (Personnalisation).
+ */
+export function TextileOrderFields({ error }: Props) {
   const line = useNewOrderStore(selectLine);
+  const setTarget = useNewOrderStore((s) => s.setTextileTarget);
   const setModel = useNewOrderStore((s) => s.setTextileModel);
-  const clearItems = useNewOrderStore((s) => s.clearTextileItems);
+  const removeItem = useNewOrderStore((s) => s.removeTextileItem);
 
   if (!line || !isTextileLine(line)) return null;
 
   return (
     <Inner
       line={line}
+      setTarget={setTarget}
       setModel={setModel}
-      clearItems={clearItems}
-      onStudioBat={onStudioBat}
+      removeItem={removeItem}
       error={error}
     />
   );
@@ -36,71 +46,151 @@ export function TextileOrderFields({ error, onStudioBat }: Props) {
 
 function Inner({
   line,
+  setTarget,
   setModel,
-  clearItems,
-  onStudioBat,
+  removeItem,
   error,
 }: {
   line: TextileLine;
+  setTarget: (t: "HOMME" | "FEMME") => void;
   setModel: (id: string) => void;
-  clearItems: () => void;
-  onStudioBat?: () => void;
+  removeItem: (id: string) => void;
   error?: string;
 }) {
+  const modelsForTarget = useMemo(
+    () => TEXTILE_MODELS.filter((m) => m.target === line.target),
+    [line.target],
+  );
+
+  const familyCards = useMemo(
+    () =>
+      MODEL_FAMILIES.map((fam) => ({
+        ...fam,
+        model: modelsForTarget.find((m) => m.name === fam.key) ?? null,
+      })).filter((c) => c.model !== null),
+    [modelsForTarget],
+  );
+
   const currentModel = useMemo(
     () => TEXTILE_MODELS.find((m) => m.id === line.modelId) ?? null,
     [line.modelId],
   );
 
-  const design = line.design;
-  const hasDesign =
-    !!design.front || !!design.back || !!design.sleeves || design.skipped;
+  // Default Homme on mount if target is somehow unset/ENFANT.
+  useEffect(() => {
+    if (line.target !== "HOMME" && line.target !== "FEMME") {
+      setTarget("HOMME");
+    }
+  }, [line.target, setTarget]);
 
-  const hasItems = Object.values(line.items).some((it) => !it.isPlaceholder);
+  // Active colors track which colors have an open section, even when their
+  // qty rows have been emptied. Re-seeded when model changes.
+  const [activeColors, setActiveColors] = useState<Set<string>>(() => {
+    const set = new Set<string>();
+    for (const it of Object.values(line.items)) {
+      if (!it.isPlaceholder) set.add(it.color);
+    }
+    return set;
+  });
+
+  useEffect(() => {
+    const set = new Set<string>();
+    for (const it of Object.values(line.items)) {
+      if (!it.isPlaceholder) set.add(it.color);
+    }
+    setActiveColors(set);
+    // intentionally only react to model change so user-toggled colors persist
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [line.modelId]);
+
+  const toggleColor = (color: TextileColor) => {
+    if (!currentModel) return;
+    setActiveColors((prev) => {
+      const next = new Set(prev);
+      if (next.has(color.id)) {
+        for (const it of Object.values(line.items)) {
+          if (it.color === color.id) removeItem(it.id);
+        }
+        next.delete(color.id);
+      } else {
+        next.add(color.id);
+      }
+      return next;
+    });
+  };
+
+  const removeColorFromPicker = (colorId: string) => {
+    const color = currentModel?.colors.find((c) => c.id === colorId);
+    if (color) toggleColor(color);
+  };
 
   return (
     <div className="space-y-6">
+      {/* Genre */}
+      <Section label="Genre" hint="Sélectionne la coupe homme ou femme">
+        <SegmentedControl
+          ariaLabel="Genre"
+          size="lg"
+          value={line.target === "FEMME" ? "FEMME" : "HOMME"}
+          onChange={(v) => setTarget(v as "HOMME" | "FEMME")}
+          options={[
+            { value: "HOMME", label: "Homme" },
+            { value: "FEMME", label: "Femme" },
+          ]}
+        />
+      </Section>
+
+      {/* 3 model family cards — horizontal scroll on narrow viewports */}
       <Section
-        label="Référence produit"
+        label="Modèle"
+        name="modele"
         required
         error={error && error.includes("Modèle") ? error : undefined}
-        hint="Le genre est déduit automatiquement"
       >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {TEXTILE_MODELS.map((m) => {
-            const selected = line.modelId === m.id;
+        <div
+          role="radiogroup"
+          aria-label="Modèle de textile"
+          className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:snap-none sm:grid-cols-3 sm:overflow-visible"
+        >
+          {familyCards.map(({ key, label, sub, model }) => {
+            if (!model) return null;
+            const selected = line.modelId === model.id;
             return (
               <button
-                key={m.id}
+                key={key}
                 type="button"
-                onClick={() => setModel(m.id)}
-                aria-pressed={selected}
-                className={`group relative flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setModel(model.id)}
+                aria-label={`Modèle ${label}${sub ? ` — ${sub}` : ""}, référence ${model.reference}`}
+                className={`group relative flex min-w-[140px] flex-none snap-start flex-col items-center justify-center gap-1 rounded-2xl border-2 p-3 text-center transition active:scale-[0.97] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:min-w-0 sm:flex-1 ${
                   selected
-                    ? "border-slate-800 bg-slate-800 text-white shadow-sm ring-1 ring-slate-900/10"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    ? "border-blue-700 bg-blue-50 text-blue-800 shadow-sm"
+                    : "border-slate-300 bg-white text-slate-900 hover:border-slate-500 hover:bg-slate-50"
                 }`}
               >
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-semibold">
-                    {m.name}
-                  </span>
+                <ShirtGlyph
+                  className={`h-7 w-7 ${selected ? "text-blue-700" : "text-slate-700"}`}
+                  aria-hidden="true"
+                />
+                <span className="mt-1 text-base font-bold leading-tight">{label}</span>
+                {sub && (
                   <span
-                    className={`mt-0.5 text-[10px] font-medium uppercase tracking-wider ${
-                      selected ? "text-white/70" : "text-slate-500"
+                    className={`text-[11px] font-semibold uppercase tracking-wide ${
+                      selected ? "text-blue-700" : "text-slate-600"
                     }`}
                   >
-                    {TARGET_LABEL[m.target]}
+                    {sub}
                   </span>
-                </span>
+                )}
                 <span
-                  className={`flex-none rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${
+                  className={`mt-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-bold ${
                     selected
-                      ? "bg-white/15 text-white"
-                      : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-slate-100 text-slate-700"
                   }`}
                 >
-                  {m.reference}
+                  {model.reference}
                 </span>
               </button>
             );
@@ -108,91 +198,87 @@ function Inner({
         </div>
       </Section>
 
+      {/* Color picker (multi-select swatches) */}
       {currentModel && (
         <Section
-          label="Tailles & Quantités"
-          required
-          error={error && error.includes("taille") ? error : undefined}
-          hint="Ajoutez autant de lignes que nécessaire"
+          label="Couleurs"
+          name="couleurs"
+          hint="Clique pour ouvrir une ligne de tailles par couleur"
         >
-          <SizeColorTable
-            sizes={currentModel.sizes}
-            colors={currentModel.colors}
-            items={line.items}
-          />
-
-          {hasItems && (
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={clearItems}
-                className="text-xs font-medium text-slate-400 transition hover:text-rose-600"
-              >
-                Vider le tableau
-              </button>
-            </div>
-          )}
+          <div
+            role="group"
+            aria-label="Couleurs disponibles — sélection multiple"
+            className="grid grid-cols-4 gap-2 sm:grid-cols-8"
+          >
+            {currentModel.colors.map((c) => {
+              const active = activeColors.has(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleColor(c)}
+                  aria-pressed={active}
+                  aria-label={`Couleur ${c.label}${active ? " — sélectionnée" : ""}`}
+                  // ≥ 44px tap zone: h-[60px] (swatch + label) at p-2.
+                  className={`group flex min-h-[60px] flex-col items-center gap-1.5 rounded-xl border-2 p-2 transition active:scale-[0.97] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+                    active
+                      ? "border-blue-700 bg-blue-50"
+                      : "border-slate-300 bg-white hover:border-slate-500"
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`relative block h-9 w-9 rounded-full transition ${
+                      c.swatchBorder ? "ring-1 ring-slate-300" : ""
+                    } ${active ? "ring-2 ring-blue-700 ring-offset-2" : ""}`}
+                    style={{ backgroundColor: c.hex }}
+                  />
+                  <span
+                    className={`truncate text-[11px] font-semibold ${
+                      active ? "text-blue-800" : "text-slate-700"
+                    }`}
+                  >
+                    {c.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </Section>
       )}
 
-      {currentModel && (
-        <Section label="Studio BAT" hint="Face, dos, manches">
-          <button
-            type="button"
-            onClick={onStudioBat}
-            className={`group flex w-full items-center justify-between rounded-xl border-2 border-dashed p-4 text-left transition ${
-              hasDesign
-                ? "border-emerald-300 bg-emerald-50/50"
-                : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                  hasDesign
-                    ? "bg-emerald-500 text-white"
-                    : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
-                }`}
-              >
-                <BatIcon className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-slate-800">
-                  {hasDesign ? "Design prêt" : "Lier un design BAT"}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {hasDesign
-                    ? `${[design.front, design.back, design.sleeves].filter(Boolean).length} face(s) · `
-                    : ""}
-                  {hasDesign
-                    ? "Modifier dans le Studio BAT"
-                    : "Face · Dos · Manches — ou « je ferai plus tard »"}
-                </div>
-              </div>
-            </div>
-            <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700">
-              Ouvrir →
-            </span>
-          </button>
+      {/* Sizes / quantities — row-based picker */}
+      {currentModel && activeColors.size > 0 && (
+        <Section
+          label="Tailles & Quantités"
+          required
+          error={error && error.toLowerCase().includes("taille") ? error : undefined}
+          hint="Ajoute une ligne par taille et ajuste la quantité"
+        >
+          <SizeQuantityPicker
+            activeColors={activeColors}
+            onRemoveColor={removeColorFromPicker}
+          />
         </Section>
       )}
     </div>
   );
 }
 
-function BatIcon({ className }: { className?: string }) {
+// ───────── Icons ─────────
+
+function ShirtGlyph({ className }: { className?: string }) {
   return (
     <svg
       className={className}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M3 9h18M9 21V9" />
+      <path d="M4 7l4-3 2 2h4l2-2 4 3-2 4-2-1v9H8v-9l-2 1z" />
     </svg>
   );
 }

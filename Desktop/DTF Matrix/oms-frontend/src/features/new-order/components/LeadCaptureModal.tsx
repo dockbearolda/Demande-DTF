@@ -6,18 +6,18 @@ interface Props {
   open: boolean;
   initialName?: string;
   initialPhone?: string;
+  title?: string;
+  subtitle?: string;
   onClose: () => void;
   onSubmit: (payload: { name: string; phone: string }) => void;
 }
 
-/**
- * Modale "Lead Capture" — bloque la génération du devis pour collecter
- * les informations minimales du client (nom + téléphone).
- */
 export function LeadCaptureModal({
   open,
   initialName = "",
   initialPhone = "",
+  title = "Informations client",
+  subtitle = "Nécessaires pour générer le devis",
   onClose,
   onSubmit,
 }: Props) {
@@ -74,15 +74,8 @@ export function LeadCaptureModal({
         {/* Header */}
         <div className="flex items-start justify-between border-b border-slate-100 px-8 pt-7 pb-5">
           <div>
-            <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700">
-              Étape 1/2
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900">
-              Informations client
-            </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Nécessaires pour générer le devis
-            </p>
+            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
           </div>
           <button
             type="button"

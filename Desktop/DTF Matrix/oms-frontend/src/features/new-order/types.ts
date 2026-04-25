@@ -108,6 +108,7 @@ export interface TextileLine {
   /** Record keyé par TextileItem.id — O(1) updates, stable React keys */
   items: Record<string, TextileItem>;
   design: TextileDesign;
+  logoPlacement: "front-heart" | "front-center" | "back" | "front-back" | null;
   notes?: string;
 }
 

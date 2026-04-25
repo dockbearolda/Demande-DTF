@@ -491,7 +491,12 @@ function OperatorPicker({
   onChange: (value: "L" | "C" | "M") => void;
 }) {
   return (
-    <div className="flex gap-2" role="radiogroup" aria-label="Assigné à">
+    <div
+      role="radiogroup"
+      aria-label="Assigné à"
+      className="inline-flex h-10 w-full rounded-[10px] p-1"
+      style={{ background: "rgba(107,129,145,0.10)" }}
+    >
       {OPERATORS.map((op) => {
         const selected = value === op.value;
         return (
@@ -501,33 +506,92 @@ function OperatorPicker({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(op.value)}
-            className="flex h-9 flex-1 items-center gap-2 rounded-[8px] border bg-white px-2.5 text-left transition-colors"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[7px] px-2 text-[12.5px] transition-all duration-200 active:scale-[0.97]"
             style={{
-              borderColor: selected
-                ? "var(--brand-duck-400)"
-                : "var(--brand-sage-100)",
-              background: selected ? "rgba(107,129,145,0.08)" : "white",
-              boxShadow: selected
-                ? "0 0 0 2px rgba(74,98,116,0.06)"
-                : undefined,
+              background: selected ? "white" : "transparent",
+              boxShadow: selected ? "0 1px 2px rgba(32,41,48,0.08)" : "none",
+              color: selected ? "var(--fg-1)" : "var(--fg-3)",
+              fontWeight: selected ? 600 : 500,
             }}
           >
             <span
               aria-hidden="true"
-              className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[11px] font-bold text-white"
+              className="flex h-5 w-5 flex-none items-center justify-center rounded-full text-[10px] font-bold text-white"
               style={{ background: op.gradient }}
             >
               {op.initial}
             </span>
-            <span
-              className="truncate text-[12.5px]"
-              style={{
-                color: selected ? "var(--fg-1)" : "var(--fg-2)",
-                fontWeight: selected ? 600 : 500,
-              }}
-            >
-              {op.name}
-            </span>
+            <span className="truncate">{op.name}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* =========================================================================
+   DateShortcuts (Apple-style chips for quick delivery dates)
+   ========================================================================= */
+
+const DATE_SHORTCUTS: { label: string; days: number; danger?: boolean }[] = [
+  { label: "Demain", days: 1, danger: true },
+  { label: "+3j", days: 3 },
+  { label: "+5j", days: 5 },
+  { label: "+7j", days: 7 },
+  { label: "+15j", days: 15 },
+];
+
+function addDaysIso(base: Date, days: number): string {
+  const d = new Date(base);
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function DateShortcuts({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const today = new Date();
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
+      {DATE_SHORTCUTS.map((s) => {
+        const target = addDaysIso(today, s.days);
+        const sel = value === target;
+        return (
+          <button
+            key={s.label}
+            type="button"
+            onClick={() => onChange(sel ? "" : target)}
+            className="inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-[11.5px] font-semibold transition-all duration-150 active:scale-[0.96]"
+            style={{
+              background: sel
+                ? s.danger
+                  ? "var(--color-urgent)"
+                  : "var(--brand-duck-500)"
+                : s.danger
+                  ? "var(--color-urgent-soft)"
+                  : "rgba(107,129,145,0.10)",
+              color: sel
+                ? "white"
+                : s.danger
+                  ? "var(--color-urgent-ink)"
+                  : "var(--fg-2)",
+            }}
+          >
+            {s.danger && (
+              <span
+                aria-hidden="true"
+                className="block h-1.5 w-1.5 rounded-full"
+                style={{
+                  background: sel ? "white" : "var(--color-urgent)",
+                }}
+              />
+            )}
+            {s.label}
           </button>
         );
       })}
@@ -547,29 +611,37 @@ function UrgentToggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={() => onChange(!on)}
-      className="inline-flex h-9 items-center gap-2 rounded-[8px] border px-3 text-[12.5px] transition-colors"
+    <label
+      className="inline-flex h-9 cursor-pointer items-center gap-2.5 rounded-[8px] border px-3 text-[12.5px] transition-colors select-none"
       style={{
         background: on ? "var(--color-urgent-soft)" : "white",
         borderColor: on ? "var(--color-urgent)" : "var(--brand-sage-100)",
-        color: on ? "var(--color-urgent-ink)" : "var(--fg-3)",
+        color: on ? "var(--color-urgent-ink)" : "var(--fg-2)",
         fontWeight: on ? 600 : 500,
       }}
     >
-      <span
-        aria-hidden="true"
-        className="block h-2 w-2 rounded-full transition-colors"
-        style={{
-          background: on ? "var(--color-urgent)" : "var(--brand-sage-100)",
-          boxShadow: on ? "0 0 0 3px rgba(245,158,11,0.25)" : undefined,
-        }}
-      />
       <Icon d={IC_FLAME} size={14} />
       <span>Urgent</span>
-    </button>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label="Marquer comme urgent"
+        onClick={() => onChange(!on)}
+        className="relative inline-flex h-[22px] w-[38px] flex-none items-center rounded-full transition-colors duration-200"
+        style={{
+          background: on ? "var(--color-urgent)" : "rgba(74,98,116,0.22)",
+        }}
+      >
+        <span
+          className="inline-block h-[18px] w-[18px] transform rounded-full bg-white transition-transform duration-200"
+          style={{
+            transform: on ? "translateX(18px)" : "translateX(2px)",
+            boxShadow: "0 1px 3px rgba(32,41,48,0.18)",
+          }}
+        />
+      </button>
+    </label>
   );
 }
 
@@ -1226,18 +1298,10 @@ export function NewOrderModal({
           className="flex-1 overflow-y-auto"
           style={{ padding: "22px 24px" }}
         >
-          {/* 2 columns */}
-          <div
-            className="grid"
-            style={{
-              gridTemplateColumns: "1fr 1fr",
-              gap: 28,
-              marginBottom: 20,
-            }}
-          >
-            {/* Left column — Client */}
-            <section className="space-y-3">
-              <SectionTitle>Client</SectionTitle>
+          <div className="space-y-4">
+
+            {/* Step 1 — Nom du client */}
+            <StepRow n={1}>
               <Field
                 ref={clientFieldRef}
                 label="Nom du client *"
@@ -1271,6 +1335,10 @@ export function NewOrderModal({
                   inputRef={nomInputRef}
                 />
               </Field>
+            </StepRow>
+
+            {/* Step 2 — Personne à joindre */}
+            <StepRow n={2}>
               <Field label="Personne à joindre (optionnel)">
                 <TextInput
                   value={draft.personneContact}
@@ -1278,6 +1346,10 @@ export function NewOrderModal({
                   placeholder="Optionnel"
                 />
               </Field>
+            </StepRow>
+
+            {/* Step 3 — Téléphone */}
+            <StepRow n={3}>
               <Field label="Téléphone (optionnel)">
                 <TextInput
                   value={draft.telephone}
@@ -1310,17 +1382,20 @@ export function NewOrderModal({
                   </div>
                 )}
               </Field>
-            </section>
+            </StepRow>
 
-            {/* Right column — Assignation + Livraison */}
-            <section className="space-y-3">
-              <SectionTitle>Assignation &amp; livraison</SectionTitle>
+            {/* Step 4 — Assigné à */}
+            <StepRow n={4}>
               <Field label="Assigné à *">
                 <OperatorPicker
                   value={draft.assignedTo}
                   onChange={(v) => patch({ assignedTo: v })}
                 />
               </Field>
+            </StepRow>
+
+            {/* Step 5 — Date de livraison */}
+            <StepRow n={5}>
               <Field label="Date de livraison (optionnel)">
                 <div className="relative">
                   <input
@@ -1342,7 +1417,15 @@ export function NewOrderModal({
                     <Icon d={IC_CAL} size={14} />
                   </span>
                 </div>
+                <DateShortcuts
+                  value={draft.dateLivraison}
+                  onChange={(v) => patch({ dateLivraison: v })}
+                />
               </Field>
+            </StepRow>
+
+            {/* Step 6 — Urgent */}
+            <StepRow n={6}>
               <div className="flex items-center gap-3">
                 <UrgentToggle
                   on={draft.isUrgent}
@@ -1355,91 +1438,93 @@ export function NewOrderModal({
                   Priorise dans la file de production
                 </span>
               </div>
-            </section>
+            </StepRow>
+
+            {/* Step 7 — Lignes de commande */}
+            <StepRow n={7}>
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-2">
+                  <SectionTitle as="span">Lignes de commande</SectionTitle>
+                  <span
+                    className="text-[11px] font-medium"
+                    style={{ color: "var(--fg-4)" }}
+                  >
+                    · {draft.lines.length} produit
+                    {draft.lines.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <LineItemsEditor
+                  items={draft.lines}
+                  onChange={(lines) => patch({ lines })}
+                  addLineRef={addLineRef}
+                />
+              </div>
+            </StepRow>
+
+            {/* Step 8 — Note interne */}
+            <StepRow n={8}>
+              <Field label="Note interne · optionnelle">
+                <textarea
+                  value={draft.notesGlobales}
+                  onChange={(e) => patch({ notesGlobales: e.target.value })}
+                  placeholder="Spécifications, remarques de production, contact particulier…"
+                  rows={2}
+                  className="block w-full rounded-[8px] border bg-white px-3 py-2 text-[12.5px] placeholder:text-[color:var(--fg-4)]"
+                  style={{
+                    borderColor: "var(--brand-sage-100)",
+                    color: "var(--fg-1)",
+                    resize: "vertical",
+                  }}
+                />
+              </Field>
+            </StepRow>
+
           </div>
-
-          {/* Full-width — Lignes de commande */}
-          <section className="space-y-2">
-            <div className="flex items-baseline gap-2">
-              <SectionTitle as="span">Lignes de commande</SectionTitle>
-              <span
-                className="text-[11px] font-medium"
-                style={{ color: "var(--fg-4)" }}
-              >
-                · {draft.lines.length} produit
-                {draft.lines.length > 1 ? "s" : ""}
-              </span>
-            </div>
-            <LineItemsEditor
-              items={draft.lines}
-              onChange={(lines) => patch({ lines })}
-              addLineRef={addLineRef}
-            />
-          </section>
-
-          {/* Full-width — Note interne */}
-          <section className="mt-5 space-y-2">
-            <SectionTitle>Note interne · optionnelle</SectionTitle>
-            <textarea
-              value={draft.notesGlobales}
-              onChange={(e) => patch({ notesGlobales: e.target.value })}
-              placeholder="Spécifications, remarques de production, contact particulier…"
-              rows={2}
-              className="block w-full rounded-[8px] border bg-white px-3 py-2 text-[12.5px] placeholder:text-[color:var(--fg-4)]"
-              style={{
-                borderColor: "var(--brand-sage-100)",
-                color: "var(--fg-1)",
-                resize: "vertical",
-              }}
-            />
-          </section>
         </div>
 
-        {/* Footer */}
+        {/* Footer — Step 9: Actions */}
         <div
-          className="flex items-center justify-between border-t"
+          className="border-t"
           style={{
-            padding: "12px 24px",
+            padding: "12px 24px 16px",
             borderColor: "rgba(74,98,116,0.1)",
             background: "rgba(255,255,255,0.35)",
           }}
         >
-          <div
-            className="flex items-center gap-3 text-[11.5px]"
-            style={{ color: "var(--fg-3)" }}
-          >
-            <span className="inline-flex items-center gap-0.5">
-              <kbd className="olda-kbd">⌘</kbd>
-              <kbd className="olda-kbd">↵</kbd>
-              <span className="ml-1">créer</span>
-            </span>
-            <span aria-hidden="true">·</span>
-            <span className="inline-flex items-center gap-0.5">
-              <kbd className="olda-kbd">Esc</kbd>
-              <span className="ml-1">fermer</span>
-            </span>
-            <span aria-hidden="true">·</span>
-            <span className="inline-flex items-center gap-0.5">
-              <kbd className="olda-kbd">⌘</kbd>
-              <kbd className="olda-kbd">⇧</kbd>
-              <kbd className="olda-kbd">L</kbd>
-              <span className="ml-1">ajouter ligne</span>
+          <div className="mb-3 flex items-center gap-2">
+            <StepBubble n={9} />
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.1em]"
+              style={{ color: "var(--fg-3)" }}
+            >
+              Actions
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <button
               type="button"
               onClick={requestClose}
-              className="h-9 rounded-[8px] px-3 text-[12.5px] font-medium"
-              style={{ color: "var(--fg-3)", background: "transparent" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "rgba(107,129,145,0.1)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
+              disabled={submitting}
+              className="h-10 rounded-[8px] border text-[12px] font-medium transition-colors disabled:opacity-40"
+              style={{
+                borderColor: "var(--color-danger)",
+                color: "var(--color-danger)",
+                background: "transparent",
+              }}
             >
-              Annuler
+              Annuler la commande
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              className="h-10 rounded-[8px] border text-[12px] font-medium transition-colors disabled:opacity-40"
+              style={{
+                borderColor: "var(--brand-sage-100)",
+                color: "var(--brand-duck-500)",
+                background: "white",
+              }}
+            >
+              Envoyer au client
             </button>
             <button
               type="button"
@@ -1451,49 +1536,38 @@ export function NewOrderModal({
                   /* ignore */
                 }
               }}
-              className="h-9 rounded-[8px] border bg-white px-3 text-[12.5px] font-medium"
+              disabled={submitting}
+              className="h-10 rounded-[8px] border text-[12px] font-medium transition-colors disabled:opacity-40"
               style={{
                 borderColor: "var(--brand-sage-100)",
                 color: "var(--fg-2)",
+                background: "white",
               }}
             >
-              Enregistrer brouillon
+              Sauvegarder dans un dossier
             </button>
             <button
               type="button"
               onClick={submit}
               disabled={!canSubmit}
-              className="inline-flex h-9 items-center gap-2 rounded-[8px] px-3 text-[12.5px] font-semibold"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[8px] text-[12px] font-semibold text-white transition-colors disabled:opacity-50"
               style={{
                 background: "var(--brand-duck-500)",
-                color: "var(--brand-paper)",
-                opacity: !canSubmit ? 0.5 : 1,
                 cursor: !canSubmit ? "not-allowed" : "default",
-              }}
-              onMouseEnter={(e) => {
-                if (canSubmit)
-                  e.currentTarget.style.background = "var(--fg-1)";
-              }}
-              onMouseLeave={(e) => {
-                if (canSubmit)
-                  e.currentTarget.style.background = "var(--brand-duck-500)";
               }}
             >
               {submitting ? (
                 <>
                   <span
                     className="inline-block"
-                    style={{
-                      animation: "spin 900ms linear infinite",
-                      display: "inline-flex",
-                    }}
+                    style={{ animation: "spin 900ms linear infinite", display: "inline-flex" }}
                   >
-                    <Icon d={IC_LOADER} size={14} />
+                    <Icon d={IC_LOADER} size={13} />
                   </span>
                   Création…
                 </>
               ) : (
-                "Créer la commande"
+                "Ajouter au planning"
               )}
             </button>
           </div>
@@ -1515,6 +1589,28 @@ export function NewOrderModal({
 /* =========================================================================
    Small presentational helpers
    ========================================================================= */
+
+function StepBubble({ n }: { n: number }) {
+  return (
+    <span
+      className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[11px] font-bold text-white"
+      style={{ background: "var(--brand-duck-500)" }}
+    >
+      {n}
+    </span>
+  );
+}
+
+function StepRow({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="pt-[1px]">
+        <StepBubble n={n} />
+      </div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
 
 function SectionTitle({
   children,

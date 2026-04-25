@@ -6,9 +6,11 @@ import { Input, PillButton, Section } from "./primitives";
 
 interface Props {
   error?: string;
+  /** Override product list (from product category config) */
+  products?: string[];
 }
 
-export function StandardOrderFields({ error }: Props) {
+export function StandardOrderFields({ error, products }: Props) {
   const line = useNewOrderStore(selectLine);
   const setClassicProduit = useNewOrderStore((s) => s.setClassicProduit);
   const setClassicQty = useNewOrderStore((s) => s.setClassicQty);
@@ -23,6 +25,7 @@ export function StandardOrderFields({ error }: Props) {
       setQty={setClassicQty}
       setPrixUnitaire={setClassicPrixUnitaire}
       error={error}
+      products={products}
     />
   );
 }
@@ -33,14 +36,16 @@ function Inner({
   setQty,
   setPrixUnitaire,
   error,
+  products: productsProp,
 }: {
   line: ClassicLine;
   setProduit: (p: string, cp?: string) => void;
   setQty: (q: number) => void;
   setPrixUnitaire: (p: number) => void;
   error?: string;
+  products?: string[];
 }) {
-  const produits = PRODUITS_PAR_SECTEUR[line.secteur];
+  const produits = productsProp ?? PRODUITS_PAR_SECTEUR[line.secteur];
   const [showCustomProduit, setShowCustomProduit] = useState(
     !!line.customProduit && !line.produit,
   );
@@ -58,13 +63,22 @@ function Inner({
     setCustomQtyStr("");
   }, [line.secteur]);
 
+  const productErr = error && error.includes("Produit") ? error : undefined;
+  const qtyErr = error && error.includes("Quantité") ? error : undefined;
+
   return (
     <div className="space-y-6">
-      <Section label="Produit" required error={error && error.includes("Produit") ? error : undefined}>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Produit">
+      <Section label="Produit" name="produit" required error={productErr}>
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label="Produit"
+          aria-describedby={productErr ? "field-produit-error" : undefined}
+        >
           {produits.map((p) => (
             <PillButton
               key={p}
+              size="lg"
               selected={line.produit === p && !showCustomProduit}
               onClick={() => {
                 setProduit(p, undefined);
@@ -76,6 +90,7 @@ function Inner({
           ))}
           <PillButton
             dashed
+            size="lg"
             onClick={() => {
               setShowCustomProduit(true);
               setProduit("", line.customProduit ?? "");
@@ -91,28 +106,37 @@ function Inner({
               onChange={(v) => setProduit("", v)}
               placeholder="Nom du produit personnalisé"
               autoFocus
+              ariaLabel="Nom du produit personnalisé"
             />
           </div>
         )}
       </Section>
 
-      <Section label="Quantité" required error={error && error.includes("Quantité") ? error : undefined}>
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+      <Section label="Quantité" name="quantite" required error={qtyErr}>
+        <div
+          className="grid grid-cols-4 gap-2 sm:grid-cols-8"
+          role="radiogroup"
+          aria-label="Quantité"
+          aria-describedby={qtyErr ? "field-quantite-error" : undefined}
+        >
           {QUANTITES_PRESET.map((q) => {
             const sel = line.quantity === q && !showCustomQty;
             return (
               <button
                 key={q}
                 type="button"
+                role="radio"
+                aria-checked={sel}
+                aria-label={`Quantité ${q}`}
                 onClick={() => {
                   setQty(q);
                   setShowCustomQty(false);
                   setCustomQtyStr("");
                 }}
-                className={`flex h-14 items-center justify-center rounded-lg text-base font-semibold transition ${
+                className={`flex h-14 items-center justify-center rounded-xl text-base font-semibold transition-all duration-150 active:scale-[0.96] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
                   sel
-                    ? "bg-slate-800 text-white shadow-sm"
-                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    ? "border-2 border-blue-700 bg-blue-50 text-blue-800 shadow-sm"
+                    : "border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:shadow-sm"
                 }`}
               >
                 {q}
@@ -125,17 +149,18 @@ function Inner({
               setShowCustomQty(true);
               setQty(0);
             }}
-            className={`flex h-14 items-center justify-center rounded-lg border border-dashed text-sm font-medium transition ${
+            aria-label="Saisir une quantité personnalisée"
+            className={`flex h-14 items-center justify-center rounded-xl border border-dashed text-sm font-semibold transition-all duration-150 active:scale-[0.96] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
               showCustomQty
-                ? "border-slate-400 bg-slate-100 text-slate-700"
-                : "border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:text-slate-700"
+                ? "border-slate-500 bg-slate-100 text-slate-900"
+                : "border-slate-400 bg-white text-slate-700 hover:border-slate-600 hover:text-slate-900"
             }`}
           >
             + Autre…
           </button>
         </div>
         {showCustomQty && (
-          <div className="mt-3 max-w-[140px]">
+          <div className="mt-3 max-w-[160px]">
             <Input
               value={customQtyStr}
               onChange={(v) => {
@@ -146,12 +171,13 @@ function Inner({
               placeholder="Qté libre"
               inputMode="numeric"
               autoFocus
+              ariaLabel="Quantité personnalisée"
             />
           </div>
         )}
       </Section>
 
-      <Section label="Prix unitaire (€)" hint="HT par unité">
+      <Section label="Prix unitaire (€)" name="prixUnitaire" hint="HT par unité">
         <div className="max-w-[160px]">
           <Input
             value={line.prixUnitaire ? String(line.prixUnitaire) : ""}
@@ -161,6 +187,7 @@ function Inner({
             }}
             placeholder="0.00"
             inputMode="numeric"
+            ariaLabel="Prix unitaire en euros, hors taxes"
           />
         </div>
       </Section>

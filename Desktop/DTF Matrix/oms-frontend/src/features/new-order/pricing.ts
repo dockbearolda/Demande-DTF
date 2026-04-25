@@ -8,6 +8,13 @@ import {
   type PricingTier,
 } from "./types";
 
+const LOGO_PLACEMENT_SURCHARGES: Record<string, number> = {
+  "front-heart": 0,
+  "front-center": 1.5,
+  back: 2.5,
+  "front-back": 3.5,
+};
+
 /** Normalise une OrderLine vers la forme consommée par PriceBar. */
 export function toNormalized(line: OrderLine | null): NormalizedLine | null {
   if (!line) return null;
@@ -62,6 +69,11 @@ function findNextTier(
   return sorted.find((t) => t.minQty > qty) ?? null;
 }
 
+export function getLogoSurcharge(placement: string | null): number {
+  if (!placement || !(placement in LOGO_PLACEMENT_SURCHARGES)) return 0;
+  return LOGO_PLACEMENT_SURCHARGES[placement as keyof typeof LOGO_PLACEMENT_SURCHARGES];
+}
+
 /** Calcule les totaux — pure fn, memoizable côté React. */
 export function computeTotals(line: OrderLine | null): LineTotals {
   const normalized = toNormalized(line);
@@ -80,7 +92,12 @@ export function computeTotals(line: OrderLine | null): LineTotals {
 
   const applied = findTier(tiers, normalized.totalQty);
   const next = findNextTier(tiers, normalized.totalQty, applied);
-  const unitPrice = applied?.unitPrice ?? 0;
+  let unitPrice = applied?.unitPrice ?? 0;
+
+  // Add logo surcharge for textiles
+  if (line && isTextileLine(line)) {
+    unitPrice += getLogoSurcharge(line.logoPlacement);
+  }
 
   return {
     totalQty: normalized.totalQty,
