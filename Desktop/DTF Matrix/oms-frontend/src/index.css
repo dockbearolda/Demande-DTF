@@ -60,6 +60,13 @@
 
   /* Focus ring */
   --focus-ring: 0 0 0 3px rgba(107, 129, 145, 0.28);
+
+  /* New-order brand tone (selected state on cards/CTAs) */
+  --no-brand-bg: #eaeff3;       /* very light duck for selected card bg */
+  --no-brand-bg-soft: #f3f6f8;  /* hover tint */
+  --no-brand-border: var(--brand-duck-500);
+  --no-brand-text: var(--brand-duck-500);
+  --no-brand-text-strong: #33454f;
 }
 
 /* ---------- Base reset: native executable armor ---------- */
@@ -273,6 +280,52 @@ tbody[data-any-selected="true"] .order-row__check input[type="checkbox"] {
 
 .olda-shake {
   animation: olda-shake 180ms var(--ease-snap);
+}
+
+/* ---------- New-order micro-animations ---------- */
+
+@keyframes olda-pulse-once {
+  0%   { opacity: 1; transform: scale(1); }
+  35%  { opacity: 0.6; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes olda-tile-lift {
+  from { transform: translateY(0); }
+  to   { transform: translateY(2px); }
+}
+
+.no-pulse-once {
+  animation: olda-pulse-once 320ms var(--ease-snap);
+}
+
+.no-tile-selected {
+  transform: translateY(2px);
+  box-shadow: 0 4px 14px rgba(74, 98, 116, 0.12);
+}
+
+.no-color-swatch[data-selected="true"] {
+  transform: scale(1.15);
+  transition: transform 150ms var(--ease-snap), box-shadow 150ms var(--ease-snap);
+}
+
+.no-color-swatch {
+  transition: transform 150ms var(--ease-snap), box-shadow 150ms var(--ease-snap);
+}
+
+/* Product preview tint transition */
+.no-preview-fill {
+  transition: fill 200ms var(--ease-snap), stroke 200ms var(--ease-snap);
+}
+
+/* Quantity grid inputs — hide spin buttons (scoped to SizeQuantityPicker) */
+.qty-cell-input::-webkit-inner-spin-button,
+.qty-cell-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.qty-cell-input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 /* Kbd chip */

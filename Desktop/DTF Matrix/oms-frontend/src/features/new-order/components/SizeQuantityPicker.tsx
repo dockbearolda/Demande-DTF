@@ -115,6 +115,17 @@ function Inner({
     [colorsOrdered.length],
   );
 
+  // ── Double-click stepped increment ──
+
+  const handleDoubleClick = useCallback(
+    (colorId: string, sizeId: string) => {
+      const current = getQty(colorId, sizeId);
+      const step = current < 15 ? 1 : 5;
+      setQty(colorId, sizeId, current + step);
+    },
+    [getQty, setQty],
+  );
+
   // ── Remove color with confirmation when qty > 0 ──
 
   const handleRemoveColor = useCallback(
@@ -239,8 +250,9 @@ function Inner({
                             setQty(color.id, sz.id, Number(e.target.value) || 0)
                           }
                           onKeyDown={(e) => handleKeyDown(e, ri, ci)}
+                          onDoubleClick={() => handleDoubleClick(color.id, sz.id)}
                           className={[
-                            "block h-9 w-full rounded-md border text-center text-xs tabular-nums transition",
+                            "qty-cell-input block h-9 w-full rounded-md border text-center text-xs tabular-nums transition",
                             "focus:outline-none focus-visible:outline focus-visible:outline-2",
                             "focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600",
                             hasValue
