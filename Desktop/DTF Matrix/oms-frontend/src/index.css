@@ -1,0 +1,295 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   OLDA Design System — Planning OLDA
+   Quiet-luxury duck-blue + sage tokens. Native desktop armor.
+   ============================================================ */
+
+:root {
+  /* Brand — duck-blue primary */
+  --brand-duck-500: #4A6274;
+  --brand-duck-400: #556876;
+  --brand-duck-300: #6B8191;
+  --brand-duck-200: #8BA0AF;
+
+  /* Brand — sage / linen / paper */
+  --brand-sage: #CDD4CD;
+  --brand-sage-100: #dce3e8;
+  --brand-sage-50: #e6ecef;
+  --brand-linen: #EBEAE8;
+  --brand-paper: #f4f4f2;
+  --brand-paper-hi: #f5f7f8;
+
+  /* Foreground ramp */
+  --fg-1: #202930;
+  --fg-2: #2f3b45;
+  --fg-3: #556876;
+  --fg-4: #8BA0AF;
+
+  /* Semantic state */
+  --color-urgent: #f59e0b;
+  --color-urgent-soft: #fef3c7;
+  --color-urgent-ink: #92400e;
+  --color-danger: #dc2626;
+
+  /* Status badge backgrounds (OLDA workflow tokens) */
+  --status-demande: #EDEEF0;    /* Brouillon */
+  --status-devis: #D7E4EB;      /* Confirmée */
+  --status-facture: #E9E4DE;    /* BAT envoyé */
+  --status-accepted: #C9D9D3;   /* BAT validé */
+  --status-production: #FEF3C7; /* En production */
+  --status-paye: #6B8191;       /* Expédiée */
+
+  /* Text on filled (dark) badge backgrounds */
+  --fg-on-primary: #FFFFFF;
+
+  /* Radii */
+  --r-1: 6px;
+  --r-2: 8px;
+  --r-3: 10px;
+  --r-4: 12px;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgba(74, 98, 116, 0.06), 0 4px 12px rgba(74, 98, 116, 0.06);
+
+  /* Motion */
+  --dur-base: 220ms;
+  --ease-snap: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(107, 129, 145, 0.28);
+}
+
+/* ---------- Base reset: native executable armor ---------- */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html,
+body {
+  cursor: default;
+  touch-action: pan-x pan-y;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  background: var(--brand-paper);
+  color: var(--fg-1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* No text selection on chrome / UI scaffolding — only in inputs & rich text */
+button,
+[role="button"],
+label,
+nav,
+aside,
+header,
+footer {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
+/* Tabular numerics everywhere it matters */
+input[type="number"],
+input[inputmode="numeric"],
+input[inputmode="decimal"],
+.tabular,
+td,
+th {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- Focus: duck-blue ring, never outline ---------- */
+
+* {
+  outline: none;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--r-1);
+  transition: box-shadow var(--dur-base) var(--ease-snap);
+}
+
+/* ---------- Button press: tactile scale(0.97) @ 80ms ---------- */
+
+button,
+[role="button"],
+[type="button"],
+[type="submit"],
+[type="reset"] {
+  cursor: default;
+  transform: translateZ(0);
+  transition: transform 80ms var(--ease-snap),
+    background-color var(--dur-base) var(--ease-snap),
+    box-shadow var(--dur-base) var(--ease-snap),
+    color var(--dur-base) var(--ease-snap);
+}
+
+button:active,
+[role="button"]:active,
+[type="button"]:active,
+[type="submit"]:active,
+[type="reset"]:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+[type="button"]:disabled,
+[type="submit"]:disabled,
+[type="reset"]:disabled {
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* ---------- Custom scrollbars — 10px, quiet ---------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--fg-4) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--fg-4);
+  border-radius: 999px;
+  border: 2px solid var(--brand-paper);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--brand-duck-300);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ---------- OrderTable row hover & reveal ---------- */
+
+.order-row {
+  transition: background 140ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.order-row:hover,
+.order-row:focus-visible {
+  background: rgba(107, 129, 145, 0.06) !important;
+}
+
+/* Checkbox: hidden at rest, shown on hover or when anySelected */
+.order-row__check input[type="checkbox"] {
+  opacity: 0;
+  transition: opacity 140ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.order-row:hover .order-row__check input[type="checkbox"],
+.order-row__check input[type="checkbox"]:checked,
+thead input[type="checkbox"],
+tbody[data-any-selected="true"] .order-row__check input[type="checkbox"] {
+  opacity: 1;
+}
+
+/* Action buttons: hidden at rest, shown on row hover */
+.order-row__actions > div {
+  opacity: 0;
+  transition: opacity 140ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.order-row:hover .order-row__actions > div,
+.order-row:focus-visible .order-row__actions > div {
+  opacity: 1;
+}
+
+/* ---------- Selection ---------- */
+
+::selection {
+  background: rgba(107, 129, 145, 0.28);
+  color: var(--fg-1);
+}
+
+/* ---------- Modal animations ---------- */
+
+@keyframes olda-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes olda-panel-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@keyframes olda-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+@keyframes olda-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.olda-scrim {
+  animation: olda-scrim-in 180ms var(--ease-snap);
+}
+
+.olda-panel {
+  animation: olda-panel-in 220ms var(--ease-snap);
+  will-change: transform, opacity;
+}
+
+.olda-shake {
+  animation: olda-shake 180ms var(--ease-snap);
+}
+
+/* Kbd chip */
+.olda-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--brand-sage-100);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--fg-3);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+}
