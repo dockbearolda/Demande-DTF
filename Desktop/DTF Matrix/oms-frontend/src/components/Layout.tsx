@@ -9,6 +9,7 @@ import {
   FilePlus,
   HelpCircle,
   ChevronUp,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
@@ -36,6 +37,7 @@ const PRODUCTION: NavEntry[] = [
 
 const CREATION: NavEntry[] = [
   { to: "/studio-bat", label: "Studio BAT", icon: Palette, badgeKey: "bat" },
+  { to: "/studio-bat", label: "BAT Generator", icon: Wand2 },
   { to: "/bat", label: "BAT", icon: FileCheck2 },
 ];
 
@@ -289,7 +291,7 @@ function SidebarContent({
 }) {
   const renderItem = (entry: NavEntry) => (
     <NavItem
-      key={entry.to}
+      key={`${entry.to}:${entry.label}`}
       entry={entry}
       badge={entry.badgeKey ? badges[entry.badgeKey] : undefined}
       onClick={onNavigate}
