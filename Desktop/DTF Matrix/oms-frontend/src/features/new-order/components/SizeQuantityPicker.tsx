@@ -337,6 +337,31 @@ function Inner({
 
       {/* Price bar */}
       {grandTotal > 0 && <PriceBar totals={priceTotals} />}
+
+      {/* BAT creation buttons — one per active color */}
+      {grandTotal > 0 && colorsOrdered.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Générer les BAT
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {colorsOrdered.map((color) => (
+              <button
+                key={color.id}
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              >
+                <span
+                  className="block h-3 w-3 rounded-full"
+                  style={{ backgroundColor: color.hex }}
+                  aria-hidden="true"
+                />
+                Créer le BAT – {color.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
