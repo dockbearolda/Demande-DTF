@@ -115,13 +115,16 @@ function Inner({
     [colorsOrdered.length],
   );
 
-  // ── Double-click stepped increment ──
+  // ── Double-click stepped increment (via mousedown detail to bypass browser text-selection) ──
 
-  const handleDoubleClick = useCallback(
-    (colorId: string, sizeId: string) => {
-      const current = getQty(colorId, sizeId);
-      const step = current < 15 ? 1 : 5;
-      setQty(colorId, sizeId, current + step);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLInputElement>, colorId: string, sizeId: string) => {
+      if (e.detail === 2) {
+        e.preventDefault(); // prevent browser text-selection on 2nd click
+        const current = getQty(colorId, sizeId);
+        const step = current < 15 ? 1 : 5;
+        setQty(colorId, sizeId, current + step);
+      }
     },
     [getQty, setQty],
   );
@@ -250,7 +253,7 @@ function Inner({
                             setQty(color.id, sz.id, Number(e.target.value) || 0)
                           }
                           onKeyDown={(e) => handleKeyDown(e, ri, ci)}
-                          onDoubleClick={() => handleDoubleClick(color.id, sz.id)}
+                          onMouseDown={(e) => handleMouseDown(e, color.id, sz.id)}
                           className={[
                             "qty-cell-input block h-9 w-full rounded-md border text-center text-xs tabular-nums transition",
                             "focus:outline-none focus-visible:outline focus-visible:outline-2",
