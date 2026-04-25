@@ -176,7 +176,7 @@ function Inner({
                 <span className="mt-1 text-base font-bold leading-tight">{label}</span>
                 {sub && (
                   <span
-                    className={`text-[11px] font-semibold uppercase tracking-wide ${
+                    className={`text-[12px] font-semibold uppercase tracking-wide ${
                       selected ? "text-blue-700" : "text-slate-600"
                     }`}
                   >
@@ -184,7 +184,7 @@ function Inner({
                   </span>
                 )}
                 <span
-                  className={`mt-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-bold ${
+                  className={`mt-1 rounded-full px-2 py-0.5 font-mono text-[12px] font-bold ${
                     selected
                       ? "bg-blue-100 text-blue-800"
                       : "bg-slate-100 text-slate-700"
@@ -203,7 +203,7 @@ function Inner({
         <Section
           label="Couleurs"
           name="couleurs"
-          hint="Clique pour ouvrir une ligne de tailles par couleur"
+          hint="Sélectionne les couleurs à inclure dans ta commande"
         >
           <div
             role="group"
@@ -216,8 +216,9 @@ function Inner({
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => toggleColor(c)}
+                  onClick={(e) => { if (e.detail === 1) toggleColor(c); }}
                   aria-pressed={active}
+                  title={c.label}
                   aria-label={`Couleur ${c.label}${active ? " — sélectionnée" : ""}`}
                   // ≥ 44px tap zone: h-[60px] (swatch + label) at p-2.
                   className={`group flex min-h-[60px] flex-col items-center gap-1.5 rounded-xl border-2 p-2 transition active:scale-[0.97] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
@@ -234,7 +235,7 @@ function Inner({
                     style={{ backgroundColor: c.hex }}
                   />
                   <span
-                    className={`truncate text-[11px] font-semibold ${
+                    className={`truncate text-[12px] font-semibold ${
                       active ? "text-blue-800" : "text-slate-700"
                     }`}
                   >
@@ -253,7 +254,7 @@ function Inner({
           label="Tailles & Quantités"
           required
           error={error && error.toLowerCase().includes("taille") ? error : undefined}
-          hint="Ajoute une ligne par taille et ajuste la quantité"
+          hint="Saisis les quantités par taille et couleur — Tab/Entrée pour naviguer"
         >
           <SizeQuantityPicker
             activeColors={activeColors}
