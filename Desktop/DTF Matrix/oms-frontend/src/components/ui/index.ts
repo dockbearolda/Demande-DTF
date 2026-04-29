@@ -7,3 +7,7 @@ export { Badge } from "./Badge";
 export { Avatar } from "./Avatar";
 export type { AvatarUser } from "./Avatar";
 export { AlertDialog } from "./AlertDialog";
+export { KbdBadge } from "./KbdBadge";
+export { AutoAdvance } from "./AutoAdvance";
+export { ShortcutsHelpOverlay } from "./ShortcutsHelpOverlay";
+export { NumberRoller } from "./NumberRoller";

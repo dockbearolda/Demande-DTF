@@ -135,7 +135,7 @@ function Inner({
                 }}
                 className={`flex h-14 items-center justify-center rounded-xl text-base font-semibold transition-all duration-150 active:scale-[0.96] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
                   sel
-                    ? "border-2 border-blue-700 bg-blue-50 text-blue-800 shadow-sm"
+                    ? "border-2 border-[#4A6274] bg-[#4A6274]/10 text-[#3a4e5d] shadow-sm"
                     : "border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:shadow-sm"
                 }`}
               >

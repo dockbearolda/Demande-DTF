@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Validation du BAT — {{ order_reference }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg: #fafaf9;
+      --surface: #ffffff;
+      --ink: #0f172a;
+      --ink-soft: #475569;
+      --ink-mute: #94a3b8;
+      --line: #e2e8f0;
+      --line-soft: #f1f5f9;
+      --accent: #0f172a;
+      --accent-hover: #1e293b;
+      --success: #059669;
+      --success-bg: #ecfdf5;
+      --warn: #d97706;
+      --warn-bg: #fffbeb;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04);
+      --shadow-md: 0 8px 24px -8px rgba(15, 23, 42, .12);
+      --radius: 14px;
+    }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      font-feature-settings: "cv11", "ss01";
+    }
+    .shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    @media (min-width: 768px) {
+      .shell { padding: 56px 32px 80px; }
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .brand-dot {
+      width: 10px; height: 10px; border-radius: 3px;
+      background: linear-gradient(135deg, #0f172a, #475569);
+    }
+    .meta {
+      font-size: 13px;
+      color: var(--ink-mute);
+      text-align: right;
+    }
+    .hero {
+      animation: fadeUp .5s ease-out both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .eyebrow {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-mute);
+      margin: 0 0 8px;
+      font-weight: 500;
+    }
+    h1 {
+      font-size: 28px;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+      margin: 0 0 6px;
+      line-height: 1.15;
+    }
+    @media (min-width: 768px) { h1 { font-size: 36px; } }
+    .subtitle {
+      color: var(--ink-soft);
+      font-size: 15px;
+      margin: 0;
+    }
+    .subtitle strong { color: var(--ink); font-weight: 600; }
+
+    .banner {
+      margin: 24px 0;
+      padding: 16px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      animation: fadeUp .5s ease-out .1s both;
+    }
+    .banner svg { flex-shrink: 0; margin-top: 1px; }
+    .banner-success { background: var(--success-bg); color: var(--success); }
+    .banner-warn    { background: var(--warn-bg);    color: var(--warn); }
+    .banner-danger  { background: var(--danger-bg);  color: var(--danger); }
+
+    .canvas {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      animation: fadeUp .55s ease-out .05s both;
+    }
+    .canvas-frame {
+      background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+      padding: 12px;
+    }
+    .canvas-inner {
+      background: var(--surface);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+    }
+    .canvas-inner img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      max-height: 78vh;
+    }
+    .canvas-inner iframe {
+      width: 100%;
+      height: 78vh;
+      border: 0;
+    }
+
+    .note {
+      margin-top: 24px;
+      padding: 18px 20px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font-size: 14px;
+      color: var(--ink-soft);
+      box-shadow: var(--shadow-sm);
+    }
+    .note-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-mute);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .note-text { white-space: pre-wrap; line-height: 1.55; color: var(--ink); }
+
+    .decide {
+      margin-top: 32px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      animation: fadeUp .6s ease-out .15s both;
+    }
+    .decide-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin: 0 0 4px;
+      letter-spacing: -0.01em;
+    }
+    .decide-help {
+      font-size: 13px;
+      color: var(--ink-mute);
+      margin: 0 0 18px;
+    }
+    .field-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+    .field-label .opt { color: var(--ink-mute); font-weight: 400; }
+    textarea {
+      font-family: inherit;
+      font-size: 14px;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      resize: vertical;
+      min-height: 90px;
+      color: var(--ink);
+      background: #fcfcfd;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: var(--ink);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(15, 23, 42, .08);
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    @media (min-width: 560px) {
+      .actions { grid-template-columns: 1fr 1fr; }
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform .08s ease, background .15s, border-color .15s, box-shadow .15s;
+      letter-spacing: -0.005em;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-secondary {
+      background: #fff;
+      color: var(--ink);
+      border-color: var(--line);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      border-color: var(--ink-soft);
+      background: #fafafa;
+    }
+    .error {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      background: var(--danger-bg);
+      color: var(--danger);
+      border-radius: 10px;
+      font-size: 13px;
+    }
+    .error.hidden { display: none; }
+
+    footer {
+      margin-top: 48px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-mute);
+    }
+    footer a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span>Bon à Tirer</span>
+      </div>
+      <div class="meta">
+        Envoyé le {{ created_at.strftime("%d/%m/%Y") }}<br/>
+        Expire le {{ expires_at.strftime("%d/%m/%Y") }}
+      </div>
+    </div>
+
+    <header class="hero">
+      <p class="eyebrow">Commande {{ order_reference }}</p>
+      <h1>Bonjour{% if client_name %} {{ client_name }}{% endif %},</h1>
+      <p class="subtitle">
+        Voici votre <strong>BAT</strong> — merci de le vérifier puis de le valider ou de demander une modification.
+      </p>
+    </header>
+
+    {% if status == "APPROVED" %}
+      <div class="banner banner-success" role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        <div>
+          <strong>BAT validé.</strong> Votre validation a bien été enregistrée — la production peut démarrer.
+        </div>
+      </div>
+    {% elif status == "REJECTED" %}
+      <div class="banner banner-warn" role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+        <div>
+          <strong>Modification demandée.</strong> Notre équipe a bien reçu votre retour et reviendra vers vous très vite.
+        </div>
+      </div>
+    {% elif status == "EXPIRED" %}
+      <div class="banner banner-danger" role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <div>
+          <strong>Lien expiré.</strong> Merci de contacter l'équipe pour recevoir un nouveau BAT.
+        </div>
+      </div>
+    {% endif %}
+
+    <section class="canvas">
+      <div class="canvas-frame">
+        <div class="canvas-inner">
+          {% if file_type == "pdf" %}
+            <iframe src="{{ file_url }}" title="BAT PDF"></iframe>
+          {% else %}
+            <img src="{{ file_url }}" alt="Aperçu du BAT" />
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    {% if message %}
+      <div class="note">
+        <div class="note-label">Message de l'équipe</div>
+        <div class="note-text">{{ message }}</div>
+      </div>
+    {% endif %}
+
+    {% if status == "PENDING" %}
+      <section class="decide">
+        <h2 class="decide-title">Votre décision</h2>
+        <p class="decide-help">Si tout est bon, validez. Sinon, indiquez ce qu'il faut ajuster.</p>
+
+        <div id="error" class="error hidden" role="alert"></div>
+
+        <label class="field-label" for="comment">
+          Commentaire <span class="opt">(obligatoire en cas de modification)</span>
+        </label>
+        <textarea
+          id="comment"
+          rows="4"
+          placeholder="Ex. agrandir le logo arrière de 10%, recentrer le visuel avant…"
+        ></textarea>
+
+        <div class="actions">
+          <button id="btn-reject" type="button" class="btn btn-secondary">
+            Demander une modification
+          </button>
+          <button id="btn-approve" type="button" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            Valider le BAT
+          </button>
+        </div>
+      </section>
+    {% endif %}
+
+    <footer>
+      Lien unique et personnel · Sécurisé par OMS
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const token = {{ token | tojson }};
+      const endpoint = "/bat/validate/" + token + "/decision";
+      const approve = document.getElementById("btn-approve");
+      const reject  = document.getElementById("btn-reject");
+      const comment = document.getElementById("comment");
+      const error   = document.getElementById("error");
+
+      if (!approve || !reject) return;
+
+      function showError(msg) {
+        error.textContent = msg;
+        error.classList.remove("hidden");
+      }
+      function hideError() { error.classList.add("hidden"); }
+
+      function setBusy(btn, busy, label) {
+        btn.disabled = busy;
+        if (busy) {
+          btn.dataset.label = btn.innerHTML;
+          btn.innerHTML = '<span class="spinner" aria-hidden="true"></span>' + label;
+        } else if (btn.dataset.label) {
+          btn.innerHTML = btn.dataset.label;
+        }
+      }
+
+      async function submit(decision, btn, busyLabel) {
+        hideError();
+        const text = (comment.value || "").trim();
+        if (decision === "rejected" && !text) {
+          showError("Merci d'indiquer un commentaire expliquant la modification souhaitée.");
+          comment.focus();
+          return;
+        }
+        approve.disabled = true; reject.disabled = true;
+        setBusy(btn, true, busyLabel);
+        try {
+          const r = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ decision, comment: text }),
+          });
+          if (!r.ok) {
+            const j = await r.json().catch(() => ({}));
+            throw new Error(j.detail || "Erreur lors de l'envoi");
+          }
+          window.location.reload();
+        } catch (e) {
+          showError(e.message);
+          approve.disabled = false; reject.disabled = false;
+          setBusy(btn, false);
+        }
+      }
+
+      approve.addEventListener("click", () => submit("approved", approve, "Validation…"));
+      reject.addEventListener("click",  () => submit("rejected", reject,  "Envoi…"));
+    })();
+  </script>
+</body>
+</html>

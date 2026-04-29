@@ -4,6 +4,7 @@ import {
   formatDelayRange,
   type DeliveryEstimate as Estimate,
 } from "../constants/delivery";
+import { NumberRoller } from "../../../components/ui/NumberRoller";
 import { formatEUR } from "../pricing";
 import type { ProductCategoryId } from "../constants";
 
@@ -53,10 +54,15 @@ export const DeliveryEstimate = memo(function DeliveryEstimate({
         }`}
         role="status"
       >
-        <div className="flex items-center gap-2">
-          <BoltIcon className="h-3.5 w-3.5 flex-none text-amber-700" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
-            Délai express
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <BoltIcon className="h-3.5 w-3.5 flex-none text-amber-700" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+              Délai express
+            </span>
+          </div>
+          <span className="text-[10px] font-medium text-amber-700/80">
+            Toutes couleurs · {totalQty} pcs
           </span>
         </div>
         <dl className="mt-2 space-y-1 text-[11px] leading-snug">
@@ -78,13 +84,21 @@ export const DeliveryEstimate = memo(function DeliveryEstimate({
               {hasMoney ? (
                 <>
                   <span className="font-semibold text-amber-900">
-                    +{formatEUR(surchargeAmount)}
+                    +<NumberRoller
+                      value={formatEUR(surchargeAmount)}
+                      fontSize={11}
+                      className="font-mono tabular-nums"
+                    />
                   </span>
                   <span className="ml-1 text-amber-800/80">
                     (+{surchargePct}%)
                   </span>
                   <span className="block text-[10px] text-amber-800">
-                    soit {formatEUR(finalTotal)} au total
+                    soit <NumberRoller
+                      value={formatEUR(finalTotal)}
+                      fontSize={10}
+                      className="font-mono tabular-nums"
+                    /> au total
                   </span>
                 </>
               ) : (

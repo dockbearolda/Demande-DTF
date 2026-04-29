@@ -104,13 +104,13 @@ export const SubmissionSummary = memo(function SubmissionSummary({
 
         {/* Next action */}
         <div className="border-b border-slate-100 px-6 py-5 sm:px-8">
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <div className="rounded-xl border border-[#4A6274]/30 bg-[#4A6274]/10 p-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-blue-600 text-white">
+              <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-[#4A6274] text-white">
                 <span className="text-sm font-bold">1</span>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-blue-800">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#3a4e5d]">
                   Prochaine action attendue
                 </div>
                 <div className="mt-0.5 text-sm font-semibold text-slate-900">
@@ -160,7 +160,7 @@ export const SubmissionSummary = memo(function SubmissionSummary({
             onClick={onCreateAnother}
             className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
-            Nouvelle commande
+            Nouvelle demande
           </button>
           {onAddAnotherItem && (
             <button
@@ -185,7 +185,7 @@ export const SubmissionSummary = memo(function SubmissionSummary({
           <button
             type="button"
             onClick={onViewOrder}
-            className="inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            className="inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-[#4A6274] px-5 text-sm font-semibold text-white transition hover:bg-[#3a4e5d]"
           >
             Voir la commande
             <ArrowRight className="h-4 w-4" />

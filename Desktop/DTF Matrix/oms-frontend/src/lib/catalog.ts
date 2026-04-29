@@ -27,6 +27,9 @@ export interface PricingMatrix {
   tiers: PricingTier[];
 }
 
+export type SleeveType = "courte" | "longue" | "sans_manche";
+export type NeckType = "rond" | "v";
+
 export interface CatalogProduct {
   id: string;
   subfamily_id: string;
@@ -39,6 +42,11 @@ export interface CatalogProduct {
   enabled: boolean;
   colors: ColorVariant[];
   sizes: SizeOption[];
+  // Tarif & filtres 2026 (migration 0021). Optionnels pour rétrocompat
+  // avec le seed pré-2026.
+  purchase_price_ht?: number | null;
+  sleeve_type?: SleeveType | null;
+  neck_type?: NeckType | null;
 }
 
 export interface CatalogSubfamily {

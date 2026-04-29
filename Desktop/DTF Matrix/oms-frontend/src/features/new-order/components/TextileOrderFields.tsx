@@ -1,45 +1,51 @@
-import { useEffect, useMemo, useState } from "react";
-import { TEXTILE_MODELS } from "../constants";
-import { selectLine, useNewOrderStore } from "../store";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Pencil, Search } from "lucide-react";
+import { selectLine, selectLines, useNewOrderStore } from "../store";
+import { getTextileModel } from "../runtimeCatalog";
 import {
-  isTextileLine,
-  type TextileColor,
-  type TextileLine,
-} from "../types";
-import { Section } from "./primitives";
-import { SizeQuantityPicker } from "./SizeQuantityPicker";
-import { ColorSwatchPicker } from "./ColorSwatchPicker";
-import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { AutoAdvance } from "@/components/ui/AutoAdvance";
+  computeColorChangeFee,
+  computeTotals,
+  countDistinctColors,
+  formatEUR,
+} from "../pricing";
+import { isTextileLine, type TextileLine } from "../types";
+import { Step1SizeQuantityGrid } from "./Step1ProductQuantities";
+import { SupplierCatalogModal } from "./SupplierCatalogModal";
+import {
+  PlacementSelector,
+  IdenticalLogoSetupToggle,
+  type PlacementId,
+  type BodyPlacement,
+  type SleevePlacement,
+} from "./LogoPlacementSelector";
+import { absoluteMockupUrl } from "@/hooks/useSupplierCatalog";
 
 interface Props {
   error?: string;
 }
 
-const MODEL_FAMILIES: { key: string; label: string; sub?: string }[] = [
-  { key: "T-shirt ECO", label: "ECO", sub: "Entrée de gamme" },
-  { key: "T-shirt Classic", label: "Classic", sub: "Standard" },
-  { key: "Premium", label: "Premium", sub: "Haut de gamme" },
-];
-
-/**
- * Step 1 content for textile flow:
- *   Genre → Modèle → Couleurs (S3) → Tailles/Quantités (S4)
- */
 export function TextileOrderFields({ error }: Props) {
   const line = useNewOrderStore(selectLine);
-  const setTarget = useNewOrderStore((s) => s.setTextileTarget);
   const setModel = useNewOrderStore((s) => s.setTextileModel);
-  const removeItem = useNewOrderStore((s) => s.removeTextileItem);
+  const addRowForColor = useNewOrderStore((s) => s.addTextileRowForColor);
+  const upsertTextileItem = useNewOrderStore((s) => s.upsertTextileItem);
+  const toggleBodyPlacement = useNewOrderStore((s) => s.toggleBodyPlacement);
+  const toggleSleevePlacement = useNewOrderStore((s) => s.toggleSleevePlacement);
+  const setIdenticalLogoSetup = useNewOrderStore(
+    (s) => s.setIdenticalLogoSetup,
+  );
 
   if (!line || !isTextileLine(line)) return null;
 
   return (
     <Inner
       line={line}
-      setTarget={setTarget}
       setModel={setModel}
-      removeItem={removeItem}
+      addRowForColor={addRowForColor}
+      upsertTextileItem={upsertTextileItem}
+      toggleBodyPlacement={toggleBodyPlacement}
+      toggleSleevePlacement={toggleSleevePlacement}
+      setIdenticalLogoSetup={setIdenticalLogoSetup}
       error={error}
     />
   );
@@ -47,85 +53,40 @@ export function TextileOrderFields({ error }: Props) {
 
 function Inner({
   line,
-  setTarget,
   setModel,
-  removeItem,
+  addRowForColor,
+  upsertTextileItem,
+  toggleBodyPlacement,
+  toggleSleevePlacement,
+  setIdenticalLogoSetup,
   error,
 }: {
   line: TextileLine;
-  setTarget: (t: "HOMME" | "FEMME") => void;
   setModel: (id: string) => void;
-  removeItem: (id: string) => void;
+  addRowForColor: (colorId: string) => string | null;
+  upsertTextileItem: (item: import("../types").TextileItem) => void;
+  toggleBodyPlacement: (p: BodyPlacement) => void;
+  toggleSleevePlacement: (p: SleevePlacement) => void;
+  setIdenticalLogoSetup: (value: boolean) => void;
   error?: string;
 }) {
-  const modelsForTarget = useMemo(
-    () => TEXTILE_MODELS.filter((m) => m.target === line.target),
-    [line.target],
-  );
+  // Open automatically on first mount when no model is selected yet (i.e. user
+  // just picked the "Textile" category) — skips the empty intermediate card.
+  const [pickerOpen, setPickerOpen] = useState(!line.modelId);
+  const supplierSelectTimerRef = useRef<number | null>(null);
 
-  const familyCards = useMemo(
-    () =>
-      MODEL_FAMILIES.map((fam) => ({
-        ...fam,
-        model: modelsForTarget.find((m) => m.name === fam.key) ?? null,
-      })).filter((c) => c.model !== null),
-    [modelsForTarget],
-  );
-
-  const currentModel = useMemo(
-    () => TEXTILE_MODELS.find((m) => m.id === line.modelId) ?? null,
-    [line.modelId],
-  );
-
-  // Default Homme on mount if target is somehow unset/ENFANT.
   useEffect(() => {
-    if (line.target !== "HOMME" && line.target !== "FEMME") {
-      setTarget("HOMME");
-    }
-  }, [line.target, setTarget]);
-
-  // ── Raccourcis S2 : H/F (genre) + 1/2/3 (modèle) ──
-  const [modelAdvanceTick, setModelAdvanceTick] = useState(0);
-
-  const familyKeyShortcut = useMemo(() => {
-    return (idx: number) => String(idx + 1);
+    return () => {
+      if (supplierSelectTimerRef.current !== null) {
+        window.clearTimeout(supplierSelectTimerRef.current);
+      }
+    };
   }, []);
 
-  useKeyboardShortcuts([
-    {
-      key: "h",
-      label: "Genre Homme",
-      group: "S2 — Genre & Modèle",
-      handler: () => setTarget("HOMME"),
-    },
-    {
-      key: "f",
-      label: "Genre Femme",
-      group: "S2 — Genre & Modèle",
-      handler: () => setTarget("FEMME"),
-    },
-    ...familyCards.map((fc, i) => ({
-      key: familyKeyShortcut(i),
-      label: `Modèle ${fc.label}`,
-      group: "S2 — Genre & Modèle",
-      handler: () => {
-        if (fc.model) {
-          setModel(fc.model.id);
-          setModelAdvanceTick((t) => t + 1);
-        }
-      },
-    })),
-  ]);
-
-  const focusFirstSwatch = () => {
-    const first = document.querySelector<HTMLButtonElement>(
-      "[data-color-picker] [data-swatch-grid] button",
-    );
-    if (first) {
-      first.focus();
-      first.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  };
+  const currentModel = useMemo(
+    () => (line.modelId ? getTextileModel(line.modelId) ?? null : null),
+    [line.modelId],
+  );
 
   // ── Active colors ──
   const [activeColors, setActiveColors] = useState<Set<string>>(() => {
@@ -146,314 +107,378 @@ function Inner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.modelId]);
 
-  const toggleColor = (color: TextileColor) => {
-    if (!currentModel) return;
-    const isActive = activeColors.has(color.id);
-    if (isActive) {
-      const total = Object.values(line.items)
-        .filter((it) => it.color === color.id)
-        .reduce((s, it) => s + it.qty, 0);
-      if (total > 0) {
-        const ok = window.confirm(
-          `Retirer « ${color.label} » et effacer les ${total} pièce${
-            total > 1 ? "s" : ""
-          } ?`,
-        );
-        if (!ok) return;
-      }
-      for (const it of Object.values(line.items)) {
-        if (it.color === color.id) removeItem(it.id);
-      }
-      setActiveColors((prev) => {
-        const next = new Set(prev);
-        next.delete(color.id);
-        return next;
-      });
-    } else {
-      setActiveColors((prev) => new Set(prev).add(color.id));
+  const handleSupplierSelect = ({
+    refInternal,
+    colorSlug,
+  }: {
+    refInternal: string;
+    colorSlug: string;
+    model: unknown;
+    color: unknown;
+  }) => {
+    setModel(refInternal);
+    setPickerOpen(false);
+    if (supplierSelectTimerRef.current !== null) {
+      window.clearTimeout(supplierSelectTimerRef.current);
     }
+    supplierSelectTimerRef.current = window.setTimeout(() => {
+      addRowForColor(colorSlug);
+      setActiveColors(new Set([colorSlug]));
+      supplierSelectTimerRef.current = null;
+    }, 50);
   };
 
-  const selectAllColors = () => {
-    if (!currentModel) return;
-    setActiveColors(new Set(currentModel.colors.map((c) => c.id)));
-  };
+  // Derived values used in JSX
+  const distinctColors = currentModel ? countDistinctColors(line) : 0;
+  const feeEstimate =
+    currentModel && distinctColors >= 2
+      ? computeColorChangeFee(
+          { ...line, hasIdenticalLogoSetup: false },
+          distinctColors,
+        )
+      : 0;
 
-  const clearAllColors = () => {
-    if (!currentModel) return;
-    const hasAnyQty = currentModel.colors.some((c) =>
-      Object.values(line.items).some(
-        (it) => it.color === c.id && it.qty > 0,
-      ),
-    );
-    if (hasAnyQty) {
-      const ok = window.confirm(
-        "Effacer toutes les couleurs et les quantités saisies ?",
-      );
-      if (!ok) return;
-    }
-    for (const it of Object.values(line.items)) {
-      removeItem(it.id);
-    }
-    setActiveColors(new Set());
-  };
+  const showError =
+    error && (error.includes("Modèle") || error.toLowerCase().includes("modele"));
 
   return (
-    <div className="space-y-6">
-      {/* ── Genre ── */}
-      <div role="radiogroup" aria-label="Genre" className="flex items-center gap-3">
-        <span className="text-[13px] font-bold uppercase tracking-wider text-slate-700">
-          Genre
-        </span>
-        {(["HOMME", "FEMME"] as const).map((v) => {
-          const hk = v === "HOMME" ? "H" : "F";
-          return (
-            <button
-              key={v}
-              type="button"
-              role="radio"
-              aria-checked={line.target === v}
-              aria-keyshortcuts={hk}
-              onClick={() => setTarget(v)}
-              className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold transition focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 active:scale-[0.97] ${
-                line.target === v
-                  ? "border-blue-700 bg-blue-50 text-blue-800"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50"
-              }`}
-            >
-              <span>{v === "HOMME" ? "Homme" : "Femme"}</span>
-            </button>
-          );
-        })}
+    <div className="space-y-5">
+      {/* ── Section header ── */}
+      <div>
+        <h2 className="text-[13px] font-bold uppercase tracking-wider text-slate-700">
+          Référence textile
+          <span className="text-rose-700" aria-hidden="true"> *</span>
+        </h2>
+        {showError && (
+          <p role="alert" className="mt-2 text-[12px] font-medium text-rose-700">
+            {error}
+          </p>
+        )}
       </div>
 
-      {/* ── Modèle ── */}
-      <Section
-        label="Modèle"
-        name="modele"
-        required
-        error={error && error.includes("Modèle") ? error : undefined}
-      >
-        <div
-          role="radiogroup"
-          aria-label="Modèle de textile"
-          className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:snap-none sm:grid-cols-3 sm:overflow-visible"
-        >
-          {familyCards.map(({ key, label, sub, model }, idx) => {
-            if (!model) return null;
-            const selected = line.modelId === model.id;
-            const hk = familyKeyShortcut(idx);
-            return (
-              <button
-                key={key}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                aria-keyshortcuts={hk}
-                onClick={() => {
-                  setModel(model.id);
-                  setModelAdvanceTick((t) => t + 1);
-                }}
-                aria-label={`Modèle ${label}${sub ? ` — ${sub}` : ""}, référence ${model.reference}`}
-                className={`group relative flex min-w-[140px] flex-none snap-start flex-col items-center justify-center gap-1 rounded-2xl border-2 p-3 pr-3 text-center transition active:scale-[0.97] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:min-w-0 sm:flex-1 ${
-                  selected
-                    ? "border-blue-700 bg-blue-50 text-blue-800 shadow-sm"
-                    : "border-slate-300 bg-white text-slate-900 hover:border-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                <ShirtGlyph
-                  className={`h-7 w-7 ${selected ? "text-blue-700" : "text-slate-700"}`}
-                  aria-hidden="true"
-                />
-                <span className="mt-1 text-base font-bold leading-tight">{label}</span>
-                {sub && (
-                  <span
-                    className={`text-[12px] font-semibold uppercase tracking-wide ${
-                      selected ? "text-blue-700" : "text-slate-600"
-                    }`}
-                  >
-                    {sub}
-                  </span>
-                )}
-                <span
-                  className={`mt-1 rounded-full px-2 py-0.5 font-mono text-[12px] font-bold ${
-                    selected
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {model.reference}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <AutoAdvance
-          active={modelAdvanceTick > 0 && !!line.modelId}
-          resetKey={modelAdvanceTick}
-          onComplete={focusFirstSwatch}
-          visibleLabel="Passage automatique aux couleurs dans 300ms… (Esc pour annuler)"
-          announcement="Le focus passera à la sélection des couleurs dans 300 millisecondes."
+      {/* ── Model + placements card (or picker) ── */}
+      {currentModel ? (
+        <ModelPlacementCard
+          line={line}
+          model={currentModel}
+          activeColors={currentModel.colors.filter((c) => activeColors.has(c.id))}
+          onChangeModel={() => setPickerOpen(true)}
+          onTogglePlacement={(id) => {
+            if (id === "front-center") toggleBodyPlacement("front");
+            else if (id === "back-center" || id === "back-upper") toggleBodyPlacement("back");
+            else if (id === "sleeve-left") toggleSleevePlacement("sleeve-left");
+            else if (id === "sleeve-right") toggleSleevePlacement("sleeve-right");
+          }}
         />
-      </Section>
-
-      {/* ── S3 : Couleurs disponibles ── */}
-      {currentModel && (
-        <div>
-          <SectionHeader
-            icon={<PaletteIcon />}
-            label="Couleurs disponibles"
-            required
-            error={
-              error && error.toLowerCase().includes("couleur") ? error : undefined
-            }
-          />
-          <ColorSwatchPicker
-            colors={currentModel.colors}
-            activeColors={activeColors}
-            onToggleColor={(id) => {
-              const color = currentModel.colors.find((c) => c.id === id);
-              if (color) toggleColor(color);
-            }}
-            onSelectAll={selectAllColors}
-            onClearAll={clearAllColors}
-          />
-        </div>
-      )}
-
-      {/* ── Divider + S4 : Quantités par taille ── */}
-      {currentModel && (
-        <div>
-          <div className="mb-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-slate-200" aria-hidden="true" />
-            <SectionHeader
-              icon={<GridIcon />}
-              label="Quantités par taille"
-              required
-              inline
-              error={
-                error && error.toLowerCase().includes("taille") ? error : undefined
-              }
-            />
-            <div className="h-px flex-1 bg-slate-200" aria-hidden="true" />
-          </div>
-
-          {activeColors.size === 0 ? (
-            <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5">
-              <span className="text-xl" aria-hidden="true">👆</span>
-              <p className="text-sm text-slate-600">
-                Sélectionnez au moins une couleur ci-dessus pour saisir les quantités.
-              </p>
-            </div>
-          ) : (
-            <SizeQuantityPicker activeColors={activeColors} />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// SectionHeader — label avec icône, optionnellement inline
-// ─────────────────────────────────────────────────────────────
-
-function SectionHeader({
-  icon,
-  label,
-  required,
-  inline = false,
-  error,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  required?: boolean;
-  inline?: boolean;
-  error?: string;
-}) {
-  return (
-    <div className={inline ? "" : "mb-3"}>
-      <div className="flex items-center gap-2">
-        <span
-          className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-slate-100 text-slate-600"
-          aria-hidden="true"
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-white px-5 py-5 text-left transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:border-slate-600 focus-visible:ring-2 focus-visible:ring-slate-200"
         >
-          {icon}
-        </span>
-        <span className="text-[13px] font-bold uppercase tracking-wider text-slate-700">
-          {label}
-          {required && (
-            <>
-              <span className="ml-0.5 text-rose-700" aria-hidden="true">*</span>
-              <span className="sr-only"> (champ requis)</span>
-            </>
-          )}
-        </span>
-      </div>
-      {error && (
-        <p role="alert" className="mt-1.5 text-[12px] font-medium text-rose-700">
-          {error}
-        </p>
+          <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+            <Search size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-bold text-slate-900">
+              Choisir une référence
+            </span>
+            <span className="mt-0.5 block text-[12.5px] text-slate-500">
+              Catalogue fournisseur — t-shirts, polos, sweats…
+            </span>
+          </span>
+        </button>
       )}
+
+      {/* ── Identical logo toggle — n'apparaît qu'avec ≥ 2 couleurs ── */}
+      {currentModel && distinctColors >= 2 && (
+        <IdenticalLogoSetupToggle
+          checked={line.hasIdenticalLogoSetup !== false}
+          onChange={setIdenticalLogoSetup}
+          activeColorCount={distinctColors}
+          feeEstimate={feeEstimate}
+        />
+      )}
+
+      {/* ── Couleurs + grille tailles ── */}
+      {currentModel && (
+        <div className="flex flex-col gap-3">
+          {error && error.toLowerCase().includes("taille") && (
+            <p role="alert" className="text-[12px] font-medium text-rose-700">
+              {error}
+            </p>
+          )}
+          {(() => {
+            const sortedSizes = [...currentModel.sizes].sort(
+              (a, b) => a.order - b.order,
+            );
+            const activeColorsList = currentModel.colors.filter((c) =>
+              activeColors.has(c.id),
+            );
+            const quantities: Record<string, number> = {};
+            for (const it of Object.values(line.items)) {
+              if (!it.isPlaceholder) {
+                quantities[`${it.color}__${it.size}`] = it.qty;
+              }
+            }
+            return (
+              <>
+                {activeColors.size === 0 ? (
+                  <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5">
+                    <span className="text-xl" aria-hidden="true">👆</span>
+                    <p className="text-sm text-slate-600">
+                      Ajoutez une couleur pour commencer la saisie des quantités.
+                    </p>
+                  </div>
+                ) : (
+                  <Step1SizeQuantityGrid
+                    sizes={sortedSizes}
+                    colors={activeColorsList}
+                    quantities={quantities}
+                    hideTotals={activeColors.size === 1}
+                    onChange={(colorId, sizeId, qty) =>
+                      upsertTextileItem({
+                        id: `${colorId}__${sizeId}`,
+                        color: colorId,
+                        size: sizeId,
+                        qty: Math.max(0, qty || 0),
+                      })
+                    }
+                  />
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── Prix ── */}
+      {currentModel && (
+        <PriceAndRecap
+          line={line}
+          model={currentModel}
+        />
+      )}
+
+      <SupplierCatalogModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={handleSupplierSelect}
+      />
     </div>
   );
 }
 
-// ───────── Icons ─────────
+// ─────────────────────────────────────────────────────────────
+// ModelPlacementCard — modèle + sélecteur de placement en une carte
+// ─────────────────────────────────────────────────────────────
 
-function ShirtGlyph({ className }: { className?: string }) {
+function deriveSelectedPlacements(line: TextileLine): PlacementId[] {
+  const result: PlacementId[] = [];
+  const body = line.bodyPlacements ?? [];
+  const sleeves = line.sleeveLogoPlacements ?? [];
+  if (body.includes("front")) result.push("front-center");
+  if (body.includes("back")) result.push("back-center");
+  if (sleeves.includes("sleeve-left")) result.push("sleeve-left");
+  if (sleeves.includes("sleeve-right")) result.push("sleeve-right");
+  return result;
+}
+
+function ModelPlacementCard({
+  line,
+  model,
+  activeColors,
+  onChangeModel,
+  onTogglePlacement,
+}: {
+  line: TextileLine;
+  model: NonNullable<ReturnType<typeof getTextileModel>>;
+  activeColors: Array<{ id: string; label: string; hex: string; swatchBorder?: boolean }>;
+  onChangeModel: () => void;
+  onTogglePlacement: (id: PlacementId) => void;
+}) {
+  const selectedPlacements = deriveSelectedPlacements(line);
+
+  const previewColor =
+    model.colors.find((c) => activeColors.some((a) => a.id === c.id)) ??
+    model.colors[0];
+  const previewUrl = previewColor?.mockupUrl
+    ? absoluteMockupUrl(previewColor.mockupUrl)
+    : undefined;
+
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 7l4-3 2 2h4l2-2 4 3-2 4-2-1v9H8v-9l-2 1z" />
-    </svg>
+    <div className="rounded-2xl border border-slate-200 bg-white">
+      <div className="flex items-center">
+        {/* Vignette produit */}
+        <div className="flex h-[88px] w-[88px] flex-none items-center justify-center overflow-hidden rounded-l-2xl bg-slate-50">
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt={previewColor?.label ?? model.name}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <span
+              className="h-full w-full"
+              style={{ backgroundColor: previewColor?.hex ?? "#ccc" }}
+            />
+          )}
+        </div>
+
+        {/* Infos modèle */}
+        <div className="flex w-[180px] flex-none flex-col justify-center px-4 py-3">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-500">
+            {model.reference}
+          </p>
+          <p className="mt-0.5 text-[14px] font-bold leading-tight text-slate-900">
+            {model.name}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {activeColors.map((c) => (
+              <span
+                key={c.id}
+                className="h-4 w-4 rounded-full ring-1 ring-slate-900/10"
+                style={{ backgroundColor: c.hex }}
+                title={c.label}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Sélecteur de placement — multi-sélection cumulable */}
+        <div className="min-w-0 flex-1 px-3">
+          <PlacementSelector selected={selectedPlacements} onToggle={onTogglePlacement} />
+        </div>
+
+        {/* Bouton Changer */}
+        <div className="flex flex-none items-center pr-4">
+          <button
+            type="button"
+            onClick={onChangeModel}
+            className="inline-flex h-9 flex-none items-center gap-1.5 rounded-lg bg-slate-50 px-3 text-[12.5px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-100 hover:ring-slate-300"
+          >
+            <Pencil size={13} />
+            Changer
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function PaletteIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
-      <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
-      <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
-      <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
-      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
-    </svg>
-  );
-}
+// ─────────────────────────────────────────────────────────────
+// PriceAndRecap — prix unitaire + récap total (barre en bas)
+// ─────────────────────────────────────────────────────────────
 
-function GridIcon() {
+function PriceAndRecap({
+  line,
+  model,
+}: {
+  line: TextileLine;
+  model: NonNullable<ReturnType<typeof getTextileModel>>;
+}) {
+  const lineTotals = useMemo(() => computeTotals(line), [line]);
+  const unitPrice = lineTotals.unitPrice;
+
+  const perColor = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const it of Object.values(line.items)) {
+      if (it.isPlaceholder) continue;
+      if (!it.qty) continue;
+      map.set(it.color, (map.get(it.color) ?? 0) + it.qty);
+    }
+    return [...map.entries()]
+      .map(([colorId, qty]) => ({
+        colorId,
+        qty,
+        color: model.colors.find((c) => c.id === colorId),
+        subtotal: qty * unitPrice,
+      }))
+      .sort((a, b) => b.qty - a.qty);
+  }, [line.items, model.colors, unitPrice]);
+
+  const sizeBreakdown = useMemo(() => {
+    const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
+    const map = new Map<string, number>();
+    for (const it of Object.values(line.items)) {
+      if (it.isPlaceholder) continue;
+      if (!it.qty) continue;
+      map.set(it.size, (map.get(it.size) ?? 0) + it.qty);
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => {
+        const ia = SIZE_ORDER.indexOf(a.toUpperCase());
+        const ib = SIZE_ORDER.indexOf(b.toUpperCase());
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      })
+      .map(([size, qty]) => ({ size, qty }));
+  }, [line.items]);
+
   return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <rect x="14" y="14" width="7" height="7" rx="1" />
-    </svg>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      {/* Prix de cette référence */}
+      <div className="flex justify-end">
+        <div className="flex flex-col items-end">
+          <span className="text-[20px] font-bold tabular-nums text-slate-900">
+            {formatEUR(lineTotals.subtotal)}
+          </span>
+          {sizeBreakdown.length > 0 && (
+            <span className="text-[11px] text-slate-500 tabular-nums">
+              {sizeBreakdown.map(({ size, qty }) => `${qty} ${size}`).join(" · ")}
+            </span>
+          )}
+          {unitPrice > 0 && (
+            <span className="mt-0.5 text-[11px] text-slate-400 tabular-nums">
+              {formatEUR(unitPrice)}/pc
+            </span>
+          )}
+          {lineTotals.colorChangeFee > 0 && (
+            <span
+              className="mt-0.5 text-[11px] font-medium tabular-nums text-slate-600"
+              title={`${lineTotals.distinctColorCount} couleurs × placements actifs`}
+            >
+              + {formatEUR(lineTotals.colorChangeFee)} calage
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Récap par couleur — seulement à partir de 2 couleurs */}
+      {perColor.length > 1 && (
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Récapitulatif par couleur
+          </div>
+          <ul className="divide-y divide-slate-100">
+            {perColor.map(({ colorId, qty, color, subtotal }) => (
+              <li
+                key={colorId}
+                className="flex items-center gap-3 py-1.5 text-[12.5px]"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-4 w-4 flex-none rounded-full ${
+                    color?.swatchBorder ? "ring-1 ring-slate-300" : ""
+                  }`}
+                  style={{ backgroundColor: color?.hex ?? "#cccccc" }}
+                />
+                <span className="min-w-0 flex-1 truncate text-slate-700">
+                  {color?.label ?? colorId}
+                </span>
+                <span className="w-16 text-right tabular-nums text-slate-600">
+                  {qty} pcs
+                </span>
+                <span className="w-20 text-right font-semibold tabular-nums text-slate-900">
+                  {formatEUR(subtotal)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

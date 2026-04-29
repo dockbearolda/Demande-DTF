@@ -22,7 +22,11 @@ export async function pdfFirstPageToDataURL(
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
-    await page.render({ canvas, viewport }).promise;
+    // Sans `background: "transparent"`, pdf.js peint un fond blanc opaque sur
+    // toute la page — un logo vectorisé à fond transparent ressort alors avec
+    // un carré blanc autour. La rasterisation préserve l'alpha quand le canal
+    // alpha du canvas est conservé (PNG via toDataURL).
+    await page.render({ canvas, viewport, background: "transparent" }).promise;
     return canvas.toDataURL("image/png");
   } finally {
     await pdf.destroy();

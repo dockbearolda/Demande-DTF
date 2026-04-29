@@ -8,7 +8,7 @@ export function NewOrderPage() {
     <div className="py-4">
       <OrderForm
         onCreated={() => navigate("/orders")}
-        onStudioBat={() => navigate("/studio-bat")}
+        onStudioBat={() => navigate("/studio-bat/preview")}
         onStudioBatForOrder={(orderId) => navigate(`/studio-bat/${orderId}`)}
         onCancel={() => navigate("/orders")}
       />

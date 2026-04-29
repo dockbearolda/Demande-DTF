@@ -54,7 +54,7 @@ export const PillButton = memo(function PillButton({
   const cls = selected
     ? danger
       ? "bg-rose-700 text-white shadow-sm ring-1 ring-rose-800/30"
-      : "border-2 border-blue-700 bg-blue-50 text-blue-800 shadow-sm"
+      : "border-2 border-[#4A6274] bg-[#4A6274]/10 text-[#3a4e5d] shadow-sm"
     : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-100";
 
   return (
@@ -202,7 +202,10 @@ export function useSectionField(): SectionFieldContextValue | null {
 }
 
 interface SectionProps {
-  label: string;
+  /** Plain string for the common case; ReactNode lets callers append a
+   *  trailing affordance (e.g. a "valid" tick badge) without breaking
+   *  the label's typography. */
+  label: React.ReactNode;
   required?: boolean;
   /** Inline error text, displayed via FieldError and exposed to children via context. */
   error?: string;
@@ -263,6 +266,8 @@ interface InputProps {
   inputMode?: "tel" | "numeric" | "text";
   autoFocus?: boolean;
   invalid?: boolean;
+  /** Render the value in italic — used to signal "auto-filled, edit me". */
+  italic?: boolean;
   /** Override id (defaults to ambient SectionField context). */
   id?: string;
   /** Override aria-describedby (defaults to ambient context errorId). */
@@ -278,6 +283,7 @@ export function Input({
   inputMode,
   autoFocus,
   invalid,
+  italic,
   id,
   ariaDescribedBy,
   ariaLabel,
@@ -304,6 +310,8 @@ export function Input({
       // 16px base font — readable at 60–70cm desk distance.
       // Error borders are 2px so they stand out under operator fatigue.
       className={`block h-12 w-full rounded-lg bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+        italic ? "italic text-slate-700" : ""
+      } ${
         isInvalid
           ? "border-2 border-rose-600 focus:border-rose-700"
           : "border border-slate-300 focus:border-slate-500"
@@ -343,7 +351,7 @@ export function QuantityStepper({
   return (
     <div
       className={`inline-flex items-stretch rounded-lg border bg-white ${
-        value > 0 ? "border-blue-700" : "border-slate-300"
+        value > 0 ? "border-[#4A6274]" : "border-slate-300"
       }`}
     >
       <button
@@ -369,7 +377,7 @@ export function QuantityStepper({
         placeholder="0"
         // 16px font (text-base) prevents iOS zoom; min-w-[56px] keeps 2-3 digits visible.
         className={`h-11 w-14 min-w-[56px] border-l border-r border-slate-300 bg-transparent text-center text-base tabular-nums focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600 ${
-          value > 0 ? "font-bold text-blue-800" : "font-semibold text-slate-800"
+          value > 0 ? "font-bold text-[#3a4e5d]" : "font-semibold text-slate-800"
         }`}
       />
       <button
@@ -432,7 +440,7 @@ export function QtyCell({ value, onChange, label, compact, ariaLabel }: QtyCellP
   const h = compact ? "h-11" : "h-12";
   return (
     <div className={`relative ${h} overflow-hidden rounded-md border-2 ${
-      value > 0 ? "border-blue-700 bg-blue-50" : "border-slate-300 bg-white"
+      value > 0 ? "border-[#4A6274] bg-[#4A6274]/8" : "border-slate-300 bg-white"
     } transition-colors`}>
       <input
         type="number"
@@ -444,7 +452,7 @@ export function QtyCell({ value, onChange, label, compact, ariaLabel }: QtyCellP
         // 16px font on mobile prevents iOS auto-zoom.
         className={`h-full w-full bg-transparent text-center text-base tabular-nums focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600 ${
           value > 0
-            ? "font-bold text-blue-800 placeholder:text-blue-400"
+            ? "font-bold text-[#3a4e5d] placeholder:text-[#4A6274]/50"
             : "font-semibold text-slate-900 placeholder:text-slate-400"
         }`}
       />

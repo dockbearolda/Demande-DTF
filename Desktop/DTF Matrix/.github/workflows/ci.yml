@@ -25,13 +25,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('oms-api/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('oms-api/requirements-dev.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
         working-directory: oms-api
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Lint with ruff
         working-directory: oms-api
@@ -94,7 +94,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('oms-api/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('oms-api/requirements-dev.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
@@ -105,8 +105,10 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ matrix.browser }}
 
       - name: Install Python dependencies
+        # E2E job needs aiosqlite to drive the smoke API server, so install
+        # the dev requirements (which extends prod requirements).
         working-directory: oms-api
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Install Node dependencies
         working-directory: oms-frontend

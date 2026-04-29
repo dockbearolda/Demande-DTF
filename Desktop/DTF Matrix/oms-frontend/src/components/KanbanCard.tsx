@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { isOverdue, type Order } from "@/lib/types";
 
@@ -5,23 +6,28 @@ interface Props {
   order: Order;
 }
 
+const CURRENCY_FMT = new Intl.NumberFormat("fr-FR", {
+  style: "currency",
+  currency: "EUR",
+  maximumFractionDigits: 0,
+});
+
+const DATE_FMT = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit",
+  month: "2-digit",
+});
+
 function formatCurrency(value: string | number): string {
   const n = typeof value === "string" ? Number(value) : value;
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(n) ? n : 0);
+  return CURRENCY_FMT.format(Number.isFinite(n) ? n : 0);
 }
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" }).format(
-    new Date(value),
-  );
+  return DATE_FMT.format(new Date(value));
 }
 
-export function KanbanCard({ order }: Props) {
+function KanbanCardImpl({ order }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: order.id,
     data: { order },
@@ -77,3 +83,6 @@ export function KanbanCard({ order }: Props) {
     </div>
   );
 }
+
+export const KanbanCard = memo(KanbanCardImpl);
+

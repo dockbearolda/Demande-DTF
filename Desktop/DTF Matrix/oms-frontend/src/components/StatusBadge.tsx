@@ -7,14 +7,16 @@ interface Props {
 }
 
 const BADGE_STYLES: Record<OrderStatus, { bg: string; color: string }> = {
-  DRAFT:         { bg: "var(--status-demande)",    color: "var(--fg-3)" },
-  CONFIRMED:     { bg: "var(--status-devis)",      color: "var(--fg-2)" },
-  BAT_SENT:      { bg: "var(--status-facture)",    color: "var(--fg-2)" },
-  BAT_APPROVED:  { bg: "var(--status-accepted)",   color: "var(--fg-1)" },
-  IN_PRODUCTION: { bg: "var(--status-production)", color: "var(--fg-1)" },
-  SHIPPED:       { bg: "var(--status-paye)",       color: "var(--fg-on-primary)" },
-  DELIVERED:     { bg: "var(--brand-duck-500)",    color: "var(--fg-on-primary)" },
-  CANCELLED:     { bg: "var(--status-demande)",    color: "var(--fg-4)" },
+  DRAFT:               { bg: "var(--status-demande)",    color: "var(--fg-3)" },
+  EN_ATTENTE_SOURCING: { bg: "#fff4e1",                  color: "#7a3e00" },
+  EN_ATTENTE_BAT:      { bg: "#fff7ed",                  color: "#9a3412" },
+  CONFIRMED:           { bg: "var(--status-devis)",      color: "var(--fg-2)" },
+  BAT_SENT:            { bg: "var(--status-facture)",    color: "var(--fg-2)" },
+  BAT_APPROVED:        { bg: "var(--status-accepted)",   color: "var(--fg-1)" },
+  IN_PRODUCTION:       { bg: "var(--status-production)", color: "var(--fg-1)" },
+  SHIPPED:             { bg: "var(--status-paye)",       color: "var(--fg-on-primary)" },
+  DELIVERED:           { bg: "var(--brand-duck-500)",    color: "var(--fg-on-primary)" },
+  CANCELLED:           { bg: "var(--status-demande)",    color: "var(--fg-4)" },
 };
 
 const PILL_BASE: React.CSSProperties = {

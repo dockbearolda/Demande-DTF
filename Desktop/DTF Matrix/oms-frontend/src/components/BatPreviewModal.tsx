@@ -97,6 +97,7 @@ export function BatPreviewModal({
             <img
               src={objectUrl}
               alt="Aperçu du BAT"
+              decoding="async"
               className="max-h-full max-w-full rounded-lg bg-white shadow-2xl"
             />
           )

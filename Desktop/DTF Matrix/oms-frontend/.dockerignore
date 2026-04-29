@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Tests not needed in image
+tests/
+src/**/__tests__/
+playwright.config.ts
+playwright-report/
+
+# Env / secrets
+.env
+.env.*
+
+# OS / VCS
+.DS_Store
+.git/
+.github/
+.gitignore

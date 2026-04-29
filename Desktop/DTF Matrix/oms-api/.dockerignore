@@ -1,0 +1,39 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+
+# Local DB & backups (must NOT ship in image)
+*.db
+*.db-journal
+*.db.bak*
+*.sqlite
+*.sqlite3
+
+# Secrets
+.env
+.env.*
+
+# Build leftovers
+build/
+dist/
+*.egg-info/
+
+# Tests / docs
+tests/
+docs/
+README.md
+SETUP.md
+
+# Storage / state
+storage/bat/*
+storage/drafts/*
+
+.DS_Store
+.git/
+.github/
+.gitignore

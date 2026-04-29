@@ -1,40 +1,32 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import {
-  selectLine,
+  selectLines,
   selectStep,
   useNewOrderStore,
   type WizardStep,
 } from "../store";
 import { isTextileLine } from "../types";
-
-interface StepDef {
-  id: WizardStep;
-  label: string;
-  description: string;
-}
-
-const STEPS: StepDef[] = [
-  { id: 1, label: "Produit", description: "Catégorie et tailles" },
-  { id: 2, label: "Personnalisation", description: "Logo et BAT" },
-  { id: 3, label: "Livraison", description: "Client et infos" },
-];
+import { QuoteStickyFooter } from "./QuoteStickyFooter";
+import { StepIntro } from "./StepIntro";
 
 interface Props {
   /** Per-step content rendered by the parent. */
   step1: React.ReactNode;
   step2: React.ReactNode;
   step3: React.ReactNode;
+  step4: React.ReactNode;
   /** Called when user requests step navigation (Next button). Should return true to allow. */
   onRequestNext: () => boolean;
-  /** Called when user clicks final CTA on Step 3. */
+  /** Called when user clicks final CTA on Step 4. */
   onSubmitFinal: () => void;
   /** Submitting flag from the parent (disables nav). */
   submitting?: boolean;
 }
 
 /**
- * FormWizard — 3-step wrapper with progress bar + per-step navigation.
+ * FormWizard — 4-step wrapper with progress bar + per-step navigation.
  *
+ * Order of steps: Client → Articles → Personnalisation → Livraison.
  * Holds the visible step layout but delegates step content + validation to
  * the parent component. State (currentStep, formData) lives in the store and
  * is persisted to localStorage automatically.
@@ -43,149 +35,62 @@ export const FormWizard = memo(function FormWizard({
   step1,
   step2,
   step3,
+  step4,
   onRequestNext,
   onSubmitFinal,
   submitting,
 }: Props) {
   const currentStep = useNewOrderStore(selectStep);
   const goPrev = useNewOrderStore((s) => s.goPrevStep);
-  const setStep = useNewOrderStore((s) => s.setStep);
-  const line = useNewOrderStore(selectLine);
+  const lines = useNewOrderStore(selectLines);
 
-  // Step 2 may be skipped for non-textile orders, but we keep all 3 visible
-  // for design consistency and only show "no customization" placeholder.
-  const isTextile = !!line && isTextileLine(line);
+  // Personnalisation peut être skippée pour les commandes non-textile, mais on
+  // garde l'étape visible pour la cohérence visuelle. Multi-références :
+  // affichée dès qu'au moins une ligne textile existe (peu importe laquelle
+  // est dépliée dans l'accordéon).
+  const isTextile = lines.some((r) => isTextileLine(r.line));
 
-  const completion = useMemo(() => {
-    return Math.round((currentStep / 3) * 100);
-  }, [currentStep]);
-
-  const isLastStep = currentStep === 3;
+  const isLastStep = currentStep === 4;
+  // L'étape Articles (2) utilise le QuoteStickyFooter qui affiche les totaux.
+  const isArticlesStep = currentStep === 2;
 
   return (
     <div className="space-y-5">
-      <ProgressBar
-        currentStep={currentStep}
-        completion={completion}
-        onJump={(target) => {
-          // Allow jumping back, but forward only via Next (to enforce validation)
-          if (target <= currentStep) setStep(target);
-        }}
-      />
+      <StepIntro step={currentStep} />
 
       <div
         key={currentStep}
         className="animate-in fade-in slide-in-from-right-1 duration-200"
       >
         {currentStep === 1 && step1}
-        {currentStep === 2 &&
+        {currentStep === 2 && step2}
+        {currentStep === 3 &&
           (isTextile ? (
-            step2
+            step3
           ) : (
             <NoCustomization />
           ))}
-        {currentStep === 3 && step3}
+        {currentStep === 4 && step4}
       </div>
 
-      <NavigationBar
-        currentStep={currentStep}
-        isLastStep={isLastStep}
-        submitting={submitting}
-        onPrev={goPrev}
-        onNext={() => {
-          if (onRequestNext()) {
-            // parent caller will move step itself if validation passes
-          }
-        }}
-        onSubmit={onSubmitFinal}
-      />
+      {isArticlesStep ? (
+        <QuoteStickyFooter
+          onContinue={() => { onRequestNext(); }}
+          submitting={submitting}
+        />
+      ) : (
+        <NavigationBar
+          currentStep={currentStep}
+          isLastStep={isLastStep}
+          submitting={submitting}
+          onPrev={goPrev}
+          onNext={() => { onRequestNext(); }}
+          onSubmit={onSubmitFinal}
+        />
+      )}
     </div>
   );
 });
-
-// ───────── ProgressBar ─────────
-
-function ProgressBar({
-  currentStep,
-  completion,
-  onJump,
-}: {
-  currentStep: WizardStep;
-  completion: number;
-  onJump: (step: WizardStep) => void;
-}) {
-  return (
-    <div>
-      {/* Pastilles row */}
-      <div className="relative flex items-center justify-between">
-        {/* Track */}
-        <div className="absolute left-5 right-5 top-5 h-0.5 -translate-y-1/2 bg-slate-200" />
-        <div
-          className="absolute left-5 top-5 h-0.5 -translate-y-1/2 bg-blue-600 transition-all duration-300"
-          style={{
-            width: `calc(${((currentStep - 1) / (STEPS.length - 1)) * 100}% - ${
-              currentStep === 1 ? 0 : 0
-            }px)`,
-            maxWidth: "calc(100% - 40px)",
-          }}
-        />
-
-        {STEPS.map((s) => {
-          const completed = s.id < currentStep;
-          const active = s.id === currentStep;
-          const clickable = s.id <= currentStep;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => clickable && onJump(s.id)}
-              disabled={!clickable}
-              className={`relative z-10 flex flex-col items-center gap-1.5 transition ${
-                clickable ? "cursor-pointer" : "cursor-not-allowed"
-              }`}
-            >
-              <span
-                className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ring-4 transition-all duration-200 ${
-                  completed
-                    ? "bg-blue-600 text-white ring-blue-100"
-                    : active
-                      ? "bg-white text-blue-700 ring-blue-200 shadow-sm border-2 border-blue-600"
-                      : "bg-white text-slate-400 ring-slate-100 border border-slate-200"
-                }`}
-              >
-                {completed ? <CheckIcon className="h-5 w-5" /> : s.id}
-              </span>
-              <div className="text-center">
-                <div
-                  className={`text-[11px] font-bold uppercase tracking-wider ${
-                    active
-                      ? "text-blue-700"
-                      : completed
-                        ? "text-slate-700"
-                        : "text-slate-400"
-                  }`}
-                >
-                  {s.label}
-                </div>
-                <div className="hidden text-[12px] font-medium text-slate-500 sm:block">
-                  {s.description}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* % completion */}
-      <div className="mt-3 flex items-center justify-between text-[12px]">
-        <span className="font-medium text-slate-600">
-          Étape {currentStep} sur {STEPS.length}
-        </span>
-        <span className="font-bold text-blue-700 tabular-nums">{completion}%</span>
-      </div>
-    </div>
-  );
-}
 
 // ───────── NavigationBar ─────────
 
@@ -204,23 +109,27 @@ function NavigationBar({
   onNext: () => void;
   onSubmit: () => void;
 }) {
-  const nextLabels: Record<WizardStep, string> = {
-    1: "Continuer vers la personnalisation",
-    2: "Continuer vers la livraison",
-    3: "Créer la commande",
-  };
+  const ctaLabel = isLastStep
+    ? "Créer la commande"
+    : currentStep === 1
+      ? "Continuer · Articles →"
+      : currentStep === 3
+        ? "Continuer · Livraison →"
+        : "Étape suivante";
 
   return (
-    <div className="sticky bottom-0 -mx-6 mt-6 flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/95 px-6 py-4 backdrop-blur-sm sm:-mx-8 sm:px-8">
-      <button
-        type="button"
-        onClick={onPrev}
-        disabled={currentStep === 1 || submitting}
-        className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Précédent
-      </button>
+    <div className="sticky bottom-0 -mx-6 mt-6 flex items-center gap-3 border-t border-slate-200 bg-slate-50/95 px-6 py-4 backdrop-blur-sm sm:-mx-8 sm:px-8">
+      {currentStep > 1 && (
+        <button
+          type="button"
+          onClick={onPrev}
+          disabled={submitting}
+          aria-label="Étape précédente"
+          className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      )}
 
       <button
         type="button"
@@ -231,11 +140,7 @@ function NavigationBar({
             ? "Après validation, le BAT part en production automatiquement si non contesté sous 48 h"
             : undefined
         }
-        className={`inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm transition disabled:opacity-60 sm:flex-initial ${
-          isLastStep
-            ? "bg-emerald-600 text-white hover:bg-emerald-700"
-            : "bg-slate-900 text-white hover:bg-slate-800"
-        }`}
+        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-[#4A6274] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3a4e5d] disabled:opacity-60"
       >
         {submitting ? (
           <>
@@ -244,8 +149,8 @@ function NavigationBar({
           </>
         ) : (
           <>
-            {nextLabels[currentStep]}
-            {!isLastStep && <ChevronRight className="h-4 w-4" />}
+            {ctaLabel}
+            <ChevronRight className="h-4 w-4" />
           </>
         )}
       </button>
@@ -273,14 +178,6 @@ function NoCustomization() {
 }
 
 // ───────── Icons ─────────
-
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
 
 function ChevronLeft({ className }: { className?: string }) {
   return (
@@ -314,3 +211,4 @@ function Spinner({ className }: { className?: string }) {
     </svg>
   );
 }
+

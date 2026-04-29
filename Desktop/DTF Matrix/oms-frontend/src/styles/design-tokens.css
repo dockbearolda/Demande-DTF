@@ -1,0 +1,198 @@
+/* ============================================================
+   OMS Lundi Aprem — Design Tokens
+   ------------------------------------------------------------
+   Source of truth for every visual primitive used in the app.
+   Components MUST consume tokens (Tailwind classes mapped from
+   here, or `var(--token)`). No raw hex / px values inline.
+
+   Layers, in order:
+     1. Ink ramp        — neutral surfaces & text
+     2. Accent          — primary brand (duck-blue)
+     3. Feedback        — positive / warning / danger
+     4. Spacing scale   — 4pt rhythm, s-1..s-20
+     5. Radii           — r-1..r-5 + r-pill
+     6. Shadows         — shadow-1..shadow-3
+     7. Type families   — display / text / mono
+     8. Motion          — durations & easings
+     9. Semantic alias  — bridge to legacy OLDA tokens
+   ============================================================ */
+
+:root {
+  /* ----- 1. INK RAMP ---------------------------------------
+     Neutral ramp tuned with a slight cool tint so it sits
+     well against the duck-blue accent. Use for text, surfaces,
+     borders, dividers — never for brand or feedback states.
+
+       ink-25   page background, lightest surface
+       ink-50   default paper background
+       ink-100  raised surface / soft divider
+       ink-200  border (rest), subtle separator
+       ink-300  border (strong), disabled control fill
+       ink-400  placeholder, muted icon
+       ink-500  secondary text, helper copy
+       ink-600  body text (default reading)
+       ink-700  emphasized body, table headers
+       ink-800  titles, primary headings
+       ink-900  max-contrast headings, modal titles
+  --------------------------------------------------------- */
+  --ink-25:  #FAFAF9;
+  --ink-50:  #F4F4F2;
+  --ink-100: #EBEAE8;
+  --ink-200: #DCE3E8;
+  --ink-300: #C4CCD2;
+  --ink-400: #8BA0AF;
+  --ink-500: #6B8191;
+  --ink-600: #556876;
+  --ink-700: #2F3B45;
+  --ink-800: #202930;
+  --ink-900: #0F1418;
+
+  /* ----- 2. ACCENT (duck-blue, primary) --------------------
+       accent-50   selected card background, subtle hover wash
+       accent-100  hover wash on tinted surfaces
+       accent-500  primary action (button bg, link, focus)
+       accent-600  primary hover
+       accent-700  primary pressed / active state
+  --------------------------------------------------------- */
+  --accent-50:  #EAEFF3;
+  --accent-100: #D7E4EB;
+  --accent-500: #4A6274;
+  --accent-600: #3D5361;
+  --accent-700: #33454F;
+
+  /* ----- 3. FEEDBACK ---------------------------------------
+       *-500   solid icon / badge / border color
+       *-100   soft tinted background (badges, banners)
+     Use only for state messaging — never decoratively.
+  --------------------------------------------------------- */
+  --positive-500: #1F9D6B;
+  --positive-100: #D7EFE3;
+  --warning-500: #F59E0B;
+  --warning-100: #FEF3C7;
+  --danger-500:  #DC2626;
+  --danger-100:  #FCDADA;
+
+  /* ----- 4. SPACING (4pt scale) ----------------------------
+     Every layout dimension (padding, margin, gap, fixed
+     width/height of UI primitives) MUST snap to this scale.
+     If you reach for a value that isn't here, the scale is
+     wrong — extend it via this file, never inline.
+  --------------------------------------------------------- */
+  --s-1:   4px;
+  --s-2:   8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  20px;
+  --s-6:  24px;
+  --s-7:  28px;
+  --s-8:  32px;
+  --s-9:  36px;
+  --s-10: 40px;
+  --s-11: 44px;
+  --s-12: 48px;
+  --s-13: 52px;
+  --s-14: 56px;
+  --s-15: 60px;
+  --s-16: 64px;
+  --s-17: 68px;
+  --s-18: 72px;
+  --s-19: 76px;
+  --s-20: 80px;
+
+  /* ----- 5. RADII ------------------------------------------
+       r-1   inputs, small chips
+       r-2   buttons, compact cards
+       r-3   default card, modal section
+       r-4   modal, large card
+       r-5   feature card, hero panel
+       r-pill   capsules, status pills, avatars
+  --------------------------------------------------------- */
+  --r-1:    6px;
+  --r-2:    8px;
+  --r-3:   10px;
+  --r-4:   12px;
+  --r-5:   16px;
+  --r-pill: 999px;
+
+  /* ----- 6. SHADOWS ----------------------------------------
+       shadow-1   resting elevation (cards, table rows)
+       shadow-2   hover / active card lift
+       shadow-3   modal, popover, dropdown
+     All shadows are tinted with the duck-blue accent so
+     they sit naturally on warm-paper backgrounds.
+  --------------------------------------------------------- */
+  --shadow-1: 0 1px 2px rgba(74, 98, 116, 0.06),
+              0 4px 12px rgba(74, 98, 116, 0.06);
+  --shadow-2: 0 2px 4px rgba(74, 98, 116, 0.08),
+              0 8px 20px rgba(74, 98, 116, 0.10);
+  --shadow-3: 0 8px 16px rgba(74, 98, 116, 0.10),
+              0 24px 48px rgba(74, 98, 116, 0.16);
+
+  /* ----- 7. TYPE FAMILIES ----------------------------------
+       --font-display   Inter Tight  — titles, hero, h1/h2
+       --font-text      Inter        — body, labels, controls
+       --font-mono      JetBrains Mono — numbers, code, IDs
+     System fallbacks ensure no FOUT on cold load.
+  --------------------------------------------------------- */
+  --font-display:
+    "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "Segoe UI", system-ui, sans-serif;
+  --font-text:
+    "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", system-ui, sans-serif;
+  --font-mono:
+    "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* ----- 8. MOTION -----------------------------------------
+       --dur-fast   80ms   tap / press feedback
+       --dur-base   220ms  default transition (color, bg)
+       --dur-slow   320ms  layout reveal, modal enter
+
+     --ease-snap   springy feel, used everywhere the user
+                   needs to feel responsiveness.
+  --------------------------------------------------------- */
+  --dur-fast:  80ms;
+  --dur-chip: 140ms;
+  --dur-mid:  180ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+  --ease-snap: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ----- 9a. SHORTHAND ALIASES ----------------------------
+     --accent / --accent-text   shorthand for interactive accent,
+     used by chip/button components so they don't need to pick
+     a shade explicitly.
+  --------------------------------------------------------- */
+  --accent:      var(--accent-500);
+  --accent-text: var(--accent-700);
+
+  /* ----- 9. SEMANTIC ALIASES (legacy bridge) ---------------
+     These keep older OLDA components working while the new
+     token names roll in. New code should reference the
+     canonical names above. Do not remove without a migration.
+  --------------------------------------------------------- */
+  --brand-duck-500: var(--accent-500);
+  --brand-duck-400: #556876;
+  --brand-duck-300: #6B8191;
+  --brand-duck-200: var(--ink-400);
+  --brand-sage:     #CDD4CD;
+  --brand-sage-100: var(--ink-200);
+  --brand-sage-50:  #E6ECEF;
+  --brand-linen:    var(--ink-100);
+  --brand-paper:    var(--ink-50);
+  --brand-paper-hi: #F5F7F8;
+
+  --fg-1: var(--ink-800);
+  --fg-2: var(--ink-700);
+  --fg-3: var(--ink-600);
+  --fg-4: var(--ink-400);
+  --fg-on-primary: #FFFFFF;
+
+  --color-urgent:      var(--warning-500);
+  --color-urgent-soft: var(--warning-100);
+  --color-urgent-ink:  #92400e;
+  --color-danger:      var(--danger-500);
+
+  --focus-ring: 0 0 0 3px rgba(107, 129, 145, 0.28);
+}

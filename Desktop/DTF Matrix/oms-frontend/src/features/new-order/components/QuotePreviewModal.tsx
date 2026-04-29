@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { TEXTILE_MODELS } from "../constants";
+import { getTextileModel } from "../runtimeCatalog";
 import { computeTotals, formatEUR, getLogoSurcharge } from "../pricing";
 import type { OrderHeader, TextileLine } from "../types";
 
@@ -30,7 +30,7 @@ export function QuotePreviewModal({
   onAddToOrder,
 }: Props) {
   const model = useMemo(
-    () => TEXTILE_MODELS.find((m) => m.id === line.modelId) ?? null,
+    () => getTextileModel(line.modelId) ?? null,
     [line.modelId],
   );
 
@@ -220,21 +220,41 @@ export function QuotePreviewModal({
             )}
 
             {/* Logo placement */}
-            {line.logoPlacement && (
+            {((line.bodyPlacements?.length ?? 0) > 0 ||
+              (line.sleeveLogoPlacements?.length ?? 0) > 0) && (
               <div className="border-b border-slate-100 py-5">
                 <div className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Placement du logo
                 </div>
-                <div className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">
-                  <LogoIcon className="h-4 w-4 text-slate-600" />
-                  {{
-                    "front-heart": "Avant (cœur)",
-                    "front-center": "Avant (centre)",
-                    back: "Arrière",
-                    "front-back": "Avant + Arrière",
-                  }[line.logoPlacement]}
-                  <span className="ml-1 text-slate-500">
-                    +{getLogoSurcharge(line.logoPlacement).toFixed(2)}€
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    ...(line.bodyPlacements ?? []),
+                    ...(line.sleeveLogoPlacements ?? []),
+                  ].map((p) => (
+                    <span
+                      key={p}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-900"
+                    >
+                      <LogoIcon className="h-4 w-4 text-slate-600" />
+                      {
+                        {
+                          front: "Avant",
+                          back: "Arrière",
+                          "sleeve-left": "Manche G",
+                          "sleeve-right": "Manche D",
+                        }[p]
+                      }
+                    </span>
+                  ))}
+                  <span className="text-sm text-slate-500">
+                    +
+                    {getLogoSurcharge(
+                      line.bodyPlacements,
+                      line.sleeveLogoPlacements,
+                      model?.pricingKey,
+                      totals.totalQty,
+                    ).toFixed(2)}
+                    €
                   </span>
                 </div>
               </div>
@@ -412,6 +432,8 @@ function MockupCard({
           <img
             src={side.mockupUrl}
             alt={`Mockup ${side.label}`}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-contain"
           />
         )}
@@ -419,6 +441,8 @@ function MockupCard({
           <img
             src={side.logoUrl}
             alt="Logo"
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-contain"
           />
         )}

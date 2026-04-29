@@ -1,11 +1,13 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from sqlalchemy import (
     String,
     Integer,
     Boolean,
     DateTime,
     ForeignKey,
+    Numeric,
     Uuid,
     UniqueConstraint,
     JSON,
@@ -92,6 +94,17 @@ class Product(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     colors_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     sizes_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    # ─── Fiche produit (BAT) ─────────────────────────────────────────
+    brand: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    sku_supplier: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    fabric_composition: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    fabric_weight_gsm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fit_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    print_techniques_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    # ─── Tarif & filtres 2026 ────────────────────────────────────────
+    purchase_price_ht: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
+    sleeve_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    neck_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

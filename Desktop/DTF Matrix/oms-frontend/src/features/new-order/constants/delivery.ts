@@ -72,6 +72,15 @@ export const DELIVERY_RULES: Record<ProductCategoryId, DeliveryRule> = {
       { minQty: 500, addDays: 4 },
     ],
   },
+  // Sourcing spécial — délai indicatif large : la commande passera d'abord
+  // par EN_ATTENTE_SOURCING (recherche fournisseur), puis suivra le délai
+  // réel négocié avec celui-ci. Affiché à titre de garde-fou côté UX, sans
+  // surcoût express car non applicable tant qu'on n'a pas de fournisseur.
+  "sourcing-special": {
+    baseDays: [10, 21],
+    expressDays: [7, 14],
+    expressSurcharge: 0.3,
+  },
 };
 
 /** Délai par défaut quand la catégorie n'est pas encore connue. */
@@ -171,4 +180,15 @@ export function formatDelayRange(estimate: DeliveryEstimate): string {
       ? `${estimate.minDays}`
       : `${estimate.minDays}–${estimate.maxDays}`;
   return `${range} j ouvrés`;
+}
+
+/**
+ * Calcule la marge en jours entre la date demandée et la date minimale.
+ * Retourne le nombre de jours (peut être négatif si en retard).
+ */
+export function calculateMarginDays(requestedIso: string, estimate: DeliveryEstimate): number {
+  if (!requestedIso) return 0;
+  const requested = new Date(requestedIso);
+  const earliest = new Date(estimate.earliestIso);
+  return Math.floor((requested.getTime() - earliest.getTime()) / 86_400_000);
 }

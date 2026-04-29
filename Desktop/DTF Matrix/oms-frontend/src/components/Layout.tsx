@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   ListChecks,
@@ -7,13 +7,19 @@ import {
   Palette,
   FileCheck2,
   FilePlus,
+  FileText,
   HelpCircle,
   ChevronUp,
-  Wand2,
+  Zap,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
-import { useOrders } from "@/hooks/useOrders";
+import { useMetrics } from "@/hooks/useMetrics";
+import { useDrafts } from "@/hooks/useDrafts";
 import type { OrderStatus } from "@/lib/types";
+import { clearCurrentUser, getCurrentUser, setCurrentUser } from "@/lib/currentUser";
+import { OPERATEURS } from "@/features/new-order/constants";
+import type { OperatorValue } from "@/features/new-order/types";
 
 const ATTENTION_STATUSES: OrderStatus[] = ["DRAFT", "CONFIRMED"];
 const AWAITING_BAT_STATUSES: OrderStatus[] = ["DRAFT", "CONFIRMED", "IN_PRODUCTION"];
@@ -22,23 +28,46 @@ type NavEntry = {
   to: string;
   label: string;
   icon: LucideIcon;
-  badgeKey?: "orders" | "bat";
+  badgeKey?: "orders" | "bat" | "drafts";
+  /** Visually nested under its parent — rendered with a left indent. */
+  child?: boolean;
+  /** When true, the link only highlights on exact path match (no prefix
+   *  match). Set on parents that have sub-items to avoid double-highlight. */
+  exact?: boolean;
 };
 
 const SALES: NavEntry[] = [
-  { to: "/orders/new", label: "Nouvelle commande", icon: FilePlus },
+  { to: "/orders/new", label: "Nouvelle demande", icon: FilePlus },
+  { to: "/flash-devis", label: "Flash Devis", icon: Zap },
+  { to: "/devis", label: "Devis", icon: FileText },
 ];
 
 const PRODUCTION: NavEntry[] = [
-  { to: "/orders", label: "Commandes", icon: ListChecks, badgeKey: "orders" },
+  {
+    to: "/orders",
+    label: "Commandes",
+    icon: ListChecks,
+    badgeKey: "orders",
+    exact: true,
+  },
+  {
+    to: "/orders/drafts",
+    label: "Brouillons",
+    icon: FileText,
+    badgeKey: "drafts",
+    child: true,
+  },
   { to: "/kanban", label: "Kanban", icon: KanbanSquare },
   { to: "/clients", label: "Clients", icon: Users },
 ];
 
 const CREATION: NavEntry[] = [
   { to: "/studio-bat", label: "Studio BAT", icon: Palette, badgeKey: "bat" },
-  { to: "/studio-bat", label: "BAT Generator", icon: Wand2 },
   { to: "/bat", label: "BAT", icon: FileCheck2 },
+];
+
+const CATALOG: NavEntry[] = [
+  { to: "/catalogue", label: "Catalogue", icon: BookOpen },
 ];
 
 function OmsLogo() {
@@ -72,12 +101,12 @@ function NavItem({
   return (
     <NavLink
       to={entry.to}
-      end={entry.to === "/"}
+      end={entry.to === "/" || entry.exact === true}
       onClick={onClick}
       className={({ isActive }) =>
-        `relative flex items-center gap-2.5 rounded-[8px] px-3 py-2 text-[13px] transition-colors ${
-          isActive ? "olda-nav-item--active" : "olda-nav-item"
-        }`
+        `relative flex items-center gap-2.5 rounded-[8px] py-2 text-[13px] transition-colors ${
+          entry.child ? "pl-9 pr-3" : "px-3"
+        } ${isActive ? "olda-nav-item--active" : "olda-nav-item"}`
       }
       style={{ outline: "none" }}
     >
@@ -160,6 +189,7 @@ function GroupLabel({ children }: { children: ReactNode }) {
 
 function ProfileMenu() {
   const [open, setOpen] = useState(false);
+  const [me, setMe] = useState<OperatorValue | null>(() => getCurrentUser());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -170,6 +200,24 @@ function ProfileMenu() {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
+
+  const meEntry = OPERATEURS.find((op) => op.value === me);
+  const initial = meEntry?.initial ?? "?";
+  const name = meEntry?.name ?? "Session";
+
+  function switchTo(v: OperatorValue) {
+    setCurrentUser(v);
+    setMe(v);
+    setOpen(false);
+  }
+
+  function logout() {
+    setOpen(false);
+    setMe(null);
+    // SessionGate s'abonne aux changements via subscribeCurrentUser et se
+    // remontera automatiquement, sans perdre les drafts en localStorage.
+    clearCurrentUser();
+  }
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -208,7 +256,7 @@ function ProfileMenu() {
             flexShrink: 0,
           }}
         >
-          OP
+          {initial}
         </span>
         <span
           style={{
@@ -221,7 +269,7 @@ function ProfileMenu() {
             whiteSpace: "nowrap",
           }}
         >
-          Opérateur
+          {name}
         </span>
         <ChevronUp
           size={14}
@@ -250,32 +298,115 @@ function ProfileMenu() {
             zIndex: 50,
           }}
         >
-          {["Changer de profil", "Préférences", "Déconnexion"].map((label) => (
-            <button
-              key={label}
-              type="button"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: 6,
-                background: "transparent",
-                border: "none",
-                textAlign: "left",
-                fontSize: 13,
-                fontWeight: 500,
-                color: "var(--fg-1)",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "rgba(107,129,145,0.08)")
-              }
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            >
-              {label}
-            </button>
-          ))}
+          <div
+            style={{
+              padding: "6px 10px 4px",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              color: "var(--fg-4)",
+              textTransform: "uppercase",
+            }}
+          >
+            Changer de session
+          </div>
+          {OPERATEURS.map((op) => {
+            const active = op.value === me;
+            return (
+              <button
+                key={op.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                onClick={() => switchTo(op.value)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                  padding: "7px 10px",
+                  borderRadius: 6,
+                  background: active ? "rgba(107,129,145,0.10)" : "transparent",
+                  border: "none",
+                  textAlign: "left",
+                  fontSize: 13,
+                  fontWeight: active ? 700 : 500,
+                  color: "var(--fg-1)",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active)
+                    e.currentTarget.style.background = "rgba(107,129,145,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = active
+                    ? "rgba(107,129,145,0.10)"
+                    : "transparent";
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    background: "rgba(74,98,116,0.12)",
+                    color: "var(--fg-1)",
+                    fontSize: 10,
+                    fontWeight: 800,
+                  }}
+                >
+                  {op.initial}
+                </span>
+                <span style={{ flex: 1 }}>{op.name}</span>
+                {active && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "var(--fg-3)",
+                    }}
+                  >
+                    ●
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          <div
+            aria-hidden="true"
+            style={{
+              height: 1,
+              margin: "4px 6px",
+              background: "rgba(74,98,116,0.12)",
+            }}
+          />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={logout}
+            style={{
+              display: "block",
+              width: "100%",
+              padding: "8px 10px",
+              borderRadius: 6,
+              background: "transparent",
+              border: "none",
+              textAlign: "left",
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--fg-2)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "rgba(107,129,145,0.08)")
+            }
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            Déconnexion
+          </button>
         </div>
       )}
     </div>
@@ -286,7 +417,7 @@ function SidebarContent({
   badges,
   onNavigate,
 }: {
-  badges: { orders: number; bat: number };
+  badges: { orders: number; bat: number; drafts: number };
   onNavigate?: () => void;
 }) {
   const renderItem = (entry: NavEntry) => (
@@ -353,6 +484,9 @@ function SidebarContent({
 
         <GroupLabel>Création</GroupLabel>
         {CREATION.map(renderItem)}
+
+        <GroupLabel>Catalogue</GroupLabel>
+        {CATALOG.map(renderItem)}
       </nav>
 
       <div
@@ -421,22 +555,70 @@ const SIDEBAR_STYLES = `
 export function Layout({ children }: { children?: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { data: orders = [] } = useOrders({ limit: 200 });
+  // Compteurs sidebar : on tape `/kanban/metrics` (single-row aggregate côté
+  // backend) au lieu de tirer 200 commandes pour les filtrer ici. Économie
+  // de bande passante + JSON parse à chaque rendu Layout.
+  const { data: metrics } = useMetrics();
+  const { data: drafts = [] } = useDrafts();
 
-  const badges = {
-    orders: orders.filter((o) => ATTENTION_STATUSES.includes(o.statut)).length,
-    bat: orders.filter((o) => AWAITING_BAT_STATUSES.includes(o.statut)).length,
-  };
+  const badges = useMemo(() => {
+    const byStatus = metrics?.by_status ?? ({} as Record<OrderStatus, number>);
+    const sumStatuses = (statuses: OrderStatus[]) =>
+      statuses.reduce((acc, s) => acc + (byStatus[s] ?? 0), 0);
+    return {
+      orders: sumStatuses(ATTENTION_STATUSES),
+      bat: sumStatuses(AWAITING_BAT_STATUSES),
+      drafts: drafts.length,
+    };
+  }, [metrics, drafts.length]);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
 
+  // Mobile sidebar : Esc ferme le menu, et tab-trap basique pour empêcher le
+  // focus de sortir vers le contenu derrière l'overlay.
+  const mobileAsideRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const root = mobileAsideRef.current;
+      if (!root) return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    // Focus initial sur le premier élément du menu pour les lecteurs d'écran.
+    const first = mobileAsideRef.current?.querySelector<HTMLElement>(
+      'a[href], button:not([disabled])',
+    );
+    first?.focus({ preventScroll: true });
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
+
   return (
     <div
       style={{
         display: "flex",
-        minHeight: "100vh",
+        height: "100dvh",
+        overflow: "hidden",
         background: "var(--brand-paper)",
       }}
     >
@@ -447,9 +629,8 @@ export function Layout({ children }: { children?: ReactNode }) {
         style={{
           display: "none",
           flexDirection: "column",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
+          height: "100%",
+          flexShrink: 0,
         }}
         data-desktop-sidebar
         aria-label="Navigation principale"
@@ -475,6 +656,7 @@ export function Layout({ children }: { children?: ReactNode }) {
             }}
           />
           <aside
+            ref={mobileAsideRef}
             className="olda-sidebar"
             style={{
               position: "relative",
@@ -500,13 +682,13 @@ export function Layout({ children }: { children?: ReactNode }) {
           flex: 1,
           minWidth: 0,
           flexDirection: "column",
+          height: "100%",
+          overflow: "hidden",
         }}
       >
         <header
           style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
+            flexShrink: 0,
             display: "flex",
             alignItems: "center",
             gap: 12,
@@ -559,7 +741,16 @@ export function Layout({ children }: { children?: ReactNode }) {
           </div>
         </header>
 
-        <main style={{ flex: 1, padding: 24 }}>{children ?? <Outlet />}</main>
+        <main
+          className="app-scroll"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            padding: 24,
+          }}
+        >
+          {children ?? <Outlet />}
+        </main>
       </div>
     </div>
   );

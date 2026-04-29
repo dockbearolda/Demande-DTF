@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatusBadge } from "./StatusBadge";
 import { isOverdue, type Order } from "@/lib/types";
 
@@ -27,6 +27,7 @@ const TH_STYLE: React.CSSProperties = {
 interface Props {
   orders: Order[];
   loading?: boolean;
+  onRowClick?: (order: Order) => void;
 }
 
 function formatCurrency(n: number): string {
@@ -185,7 +186,163 @@ function BulkActionBar({
   );
 }
 
-export function OrderTable({ orders, loading }: Props) {
+// Sous-composant ligne — mémoïsé pour qu'un changement de sélection sur une
+// seule ligne (ou un re-render parent dû au tri / hover) ne reflechisse pas
+// les ~100 autres. Toutes les callbacks reçues sont stabilisées via
+// useCallback côté parent.
+interface OrderRowProps {
+  order: Order;
+  idx: number;
+  selected: boolean;
+  rowHeight: number;
+  hasClick: boolean;
+  onRowClick?: (order: Order) => void;
+  onFocus: (idx: number) => void;
+  onToggle: (id: string, idx: number, e: React.MouseEvent) => void;
+}
+
+const OrderRow = memo(function OrderRow({
+  order,
+  idx,
+  selected,
+  rowHeight,
+  hasClick,
+  onRowClick,
+  onFocus,
+  onToggle,
+}: OrderRowProps) {
+  const overdue = isOverdue(order);
+  const assigned = (order as unknown as { assigned_to?: string }).assigned_to;
+  const cellBase: React.CSSProperties = {
+    height: rowHeight,
+    borderBottom: ROW_BORDER,
+    padding: "0 8px",
+    verticalAlign: "middle",
+  };
+  return (
+    <tr
+      tabIndex={0}
+      onFocus={() => onFocus(idx)}
+      onClick={() => onRowClick?.(order)}
+      className="order-row"
+      style={{
+        background: selected ? "rgba(107,129,145,0.06)" : "transparent",
+        outline: "none",
+        cursor: hasClick ? "pointer" : "default",
+      }}
+      onMouseEnter={(e) => {
+        if (!hasClick || selected) return;
+        e.currentTarget.style.background = "rgba(107,129,145,0.04)";
+      }}
+      onMouseLeave={(e) => {
+        if (!hasClick || selected) return;
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <td
+        style={{ ...cellBase, width: 32, textAlign: "center", padding: 0 }}
+        className="order-row__check"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => {}}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(order.id, idx, e as unknown as React.MouseEvent);
+          }}
+          aria-label={`Sélectionner ${order.reference}`}
+          style={{ cursor: "pointer", accentColor: "var(--brand-duck-500)" }}
+        />
+      </td>
+
+      <td style={{ ...cellBase, fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--brand-duck-500)", whiteSpace: "nowrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {order.reference}
+          {order.lines?.some((l) => l.is_sourcing_required) && (
+            <span
+              title="Contient au moins une ligne hors catalogue à sourcer"
+              aria-label="Sourcing requis"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3,
+                padding: "1px 6px",
+                borderRadius: 999,
+                background: "#fff4e1",
+                color: "#7a3e00",
+                border: "1px solid #f5cf94",
+                fontFamily: "inherit",
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}
+            >
+              ✨ Sourcing
+            </span>
+          )}
+        </span>
+      </td>
+
+      <td style={{ ...cellBase, fontSize: 14, fontWeight: 700, color: "var(--fg-1)", overflow: "hidden", maxWidth: 0 }}>
+        <div
+          style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          title={order.client?.nom ?? "—"}
+        >
+          {order.client?.nom ?? "—"}
+        </div>
+      </td>
+
+      <td style={cellBase}>
+        <StatusBadge status={order.statut} overdue={overdue} />
+      </td>
+
+      <td style={{ ...cellBase, fontSize: 13, fontWeight: 500, color: "var(--fg-3)", fontVariantNumeric: "tabular-nums" }}>
+        {formatDate(order.date_commande)}
+      </td>
+
+      <td style={{ ...cellBase, fontSize: 13, fontWeight: overdue ? 700 : 500, color: overdue ? "var(--color-danger)" : "var(--fg-3)", fontVariantNumeric: "tabular-nums" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          {formatDate(order.date_livraison_prevue)}
+          {overdue && <IconTriangleAlert />}
+        </span>
+      </td>
+
+      <td style={cellBase}>
+        <AssigneePips assigned={assigned} />
+      </td>
+
+      <td style={{ ...cellBase, fontSize: 14, fontWeight: 700, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--fg-1)" }}>
+        {formatCurrency(Number(order.montant_total) || 0)}
+      </td>
+
+      <td style={{ ...cellBase, textAlign: "right", padding: "0 6px" }} className="order-row__actions">
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+          <button
+            type="button"
+            title="Composer BAT"
+            style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", color: "var(--fg-3)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "default" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <IconFilePlus />
+          </button>
+          <button
+            type="button"
+            title="Plus d'actions"
+            style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", color: "var(--fg-3)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "default" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <IconMoreHorizontal />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+export function OrderTable({ orders, loading, onRowClick }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("date_commande");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [density, setDensity] = useState<Density>(() => {
@@ -237,24 +394,35 @@ export function OrderTable({ orders, loading }: Props) {
   const anySelected = selectedIds.size > 0;
   const allSelected = anySelected && selectedIds.size === sorted.length;
 
-  function toggleRow(id: string, idx: number, e: React.MouseEvent) {
-    if (e.shiftKey && lastClickIdx.current >= 0) {
-      const lo = Math.min(lastClickIdx.current, idx);
-      const hi = Math.max(lastClickIdx.current, idx);
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (let i = lo; i <= hi; i++) next.add(sorted[i].id);
-        return next;
-      });
-    } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
-        return next;
-      });
-    }
-    lastClickIdx.current = idx;
-  }
+  // `sortedRef` permet à `toggleRow` (mémoïsé) de lire la liste triée
+  // courante sans déclencher une re-création de la callback à chaque changement
+  // de tri/orders — sinon `OrderRow` ne tirerait jamais avantage de React.memo.
+  const sortedRef = useRef(sorted);
+  sortedRef.current = sorted;
+
+  const toggleRow = useCallback(
+    (id: string, idx: number, e: React.MouseEvent) => {
+      if (e.shiftKey && lastClickIdx.current >= 0) {
+        const lo = Math.min(lastClickIdx.current, idx);
+        const hi = Math.max(lastClickIdx.current, idx);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          for (let i = lo; i <= hi; i++) next.add(sortedRef.current[i].id);
+          return next;
+        });
+      } else {
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.has(id) ? next.delete(id) : next.add(id);
+          return next;
+        });
+      }
+      lastClickIdx.current = idx;
+    },
+    [],
+  );
+
+  const handleRowFocus = useCallback((idx: number) => setFocusIdx(idx), []);
 
   function selectAll() { setSelectedIds(new Set(sorted.map((o) => o.id))); }
   function clearSelection() { setSelectedIds(new Set()); lastClickIdx.current = -1; }
@@ -284,6 +452,9 @@ export function OrderTable({ orders, loading }: Props) {
         next.has(id) ? next.delete(id) : next.add(id);
         return next;
       });
+    } else if (e.key === "Enter" && focusIdx >= 0) {
+      e.preventDefault();
+      onRowClick?.(sorted[focusIdx]);
     } else if ((e.metaKey || e.ctrlKey) && e.key === "a") {
       e.preventDefault();
       selectAll();
@@ -423,131 +594,19 @@ export function OrderTable({ orders, loading }: Props) {
                   </td>
                 </tr>
               ) : (
-                sorted.map((order, idx) => {
-                  const overdue = isOverdue(order);
-                  const selected = selectedIds.has(order.id);
-                  const assigned = (order as unknown as { assigned_to?: string }).assigned_to;
-                  const cellBase: React.CSSProperties = {
-                    height: rowHeight,
-                    borderBottom: ROW_BORDER,
-                    padding: "0 8px",
-                    verticalAlign: "middle",
-                  };
-                  return (
-                    <tr
-                      key={order.id}
-                      tabIndex={0}
-                      onFocus={() => setFocusIdx(idx)}
-                      className="order-row"
-                      style={{
-                        background: selected ? "rgba(107,129,145,0.06)" : "transparent",
-                        outline: "none",
-                      }}
-                    >
-                      {/* Checkbox */}
-                      <td
-                        style={{ ...cellBase, width: 32, textAlign: "center", padding: 0 }}
-                        className="order-row__check"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => {}}
-                          onClick={(e) => { e.stopPropagation(); toggleRow(order.id, idx, e as unknown as React.MouseEvent); }}
-                          aria-label={`Sélectionner ${order.reference}`}
-                          style={{ cursor: "pointer", accentColor: "var(--brand-duck-500)" }}
-                        />
-                      </td>
-
-                      {/* Référence */}
-                      <td style={{ ...cellBase, fontFamily: "monospace", fontSize: 12, fontWeight: 600, color: "var(--brand-duck-500)", whiteSpace: "nowrap" }}>
-                        {order.reference}
-                      </td>
-
-                      {/* Client */}
-                      <td style={{ ...cellBase, fontSize: 14, fontWeight: 700, color: "var(--fg-1)", overflow: "hidden", maxWidth: 0 }}>
-                        <div
-                          style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                          title={order.client?.nom ?? "—"}
-                        >
-                          {order.client?.nom ?? "—"}
-                        </div>
-                      </td>
-
-                      {/* Statut */}
-                      <td style={cellBase}>
-                        <StatusBadge status={order.statut} overdue={overdue} />
-                      </td>
-
-                      {/* Commande date */}
-                      <td style={{ ...cellBase, fontSize: 13, fontWeight: 500, color: "var(--fg-3)", fontVariantNumeric: "tabular-nums" }}>
-                        {formatDate(order.date_commande)}
-                      </td>
-
-                      {/* Livraison date */}
-                      <td style={{ ...cellBase, fontSize: 13, fontWeight: overdue ? 700 : 500, color: overdue ? "var(--color-danger)" : "var(--fg-3)", fontVariantNumeric: "tabular-nums" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          {formatDate(order.date_livraison_prevue)}
-                          {overdue && <IconTriangleAlert />}
-                        </span>
-                      </td>
-
-                      {/* Assigné */}
-                      <td style={cellBase}>
-                        <AssigneePips assigned={assigned} />
-                      </td>
-
-                      {/* Montant */}
-                      <td style={{ ...cellBase, fontSize: 14, fontWeight: 700, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--fg-1)" }}>
-                        {formatCurrency(Number(order.montant_total) || 0)}
-                      </td>
-
-                      {/* Actions (hover only) */}
-                      <td style={{ ...cellBase, textAlign: "right", padding: "0 6px" }} className="order-row__actions">
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-                          <button
-                            type="button"
-                            title="Composer BAT"
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 6,
-                              border: "none",
-                              background: "transparent",
-                              color: "var(--fg-3)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              cursor: "default",
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <IconFilePlus />
-                          </button>
-                          <button
-                            type="button"
-                            title="Plus d'actions"
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 6,
-                              border: "none",
-                              background: "transparent",
-                              color: "var(--fg-3)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              cursor: "default",
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <IconMoreHorizontal />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                sorted.map((order, idx) => (
+                  <OrderRow
+                    key={order.id}
+                    order={order}
+                    idx={idx}
+                    selected={selectedIds.has(order.id)}
+                    rowHeight={rowHeight}
+                    hasClick={!!onRowClick}
+                    onRowClick={onRowClick}
+                    onFocus={handleRowFocus}
+                    onToggle={toggleRow}
+                  />
+                ))
               )}
             </tbody>
           </table>

@@ -15,7 +15,8 @@ export type ProductCategoryId =
   | "porte-cles-acrylique"
   | "tasses-gourdes"
   | "trophees-medailles"
-  | "goodies";
+  | "goodies"
+  | "sourcing-special";
 
 export interface ProductCategoryConfig {
   id: ProductCategoryId;
@@ -90,12 +91,29 @@ export const PRODUCT_CATEGORIES: ProductCategoryConfig[] = [
     secteurOptions: ["Trotec", "UV"],
     produits: ["Stylo", "Carnet", "Badge", "Sticker", "Magnet", "Porte-clés"],
   },
+  {
+    id: "sourcing-special",
+    label: "Hors catalogue",
+    description: "Article à sourcer (chapeaux, vêtements custom, accessoires…)",
+    icon: "sparkles",
+    autoSecteur: "Autres",
+    displaySecteur: "Sourcing",
+    produits: [
+      "Chapeau / Casquette",
+      "Vêtement custom",
+      "Accessoire",
+      "Maroquinerie",
+      "Décoration",
+      "Autre article",
+    ],
+  },
 ];
 
 export const OPERATEURS = [
   { value: "L" as const, initial: "L", name: "Loïc" },
   { value: "C" as const, initial: "C", name: "Charlie" },
   { value: "M" as const, initial: "M", name: "Mélina" },
+  { value: "A" as const, initial: "A", name: "Autre" },
 ];
 
 // ───────── Produits par secteur classique ─────────
@@ -146,25 +164,29 @@ export const PRICING: Record<string, PricingTier[]> = {
   ],
   Autres: [{ minQty: 1, unitPrice: 10 }],
 
-  // Textiles — pricing par modèle
-  "Textiles/CGTU01": [
-    { minQty: 1, unitPrice: 12 },
-    { minQty: 20, unitPrice: 9.5 },
-    { minQty: 50, unitPrice: 8 },
-    { minQty: 100, unitPrice: 6.5 },
-  ],
-  "Textiles/K3025": [
-    { minQty: 1, unitPrice: 14 },
-    { minQty: 20, unitPrice: 11 },
-    { minQty: 50, unitPrice: 9 },
-    { minQty: 100, unitPrice: 7.5 },
-  ],
-  "Textiles/NS300": [
-    { minQty: 1, unitPrice: 22 },
-    { minQty: 20, unitPrice: 18 },
-    { minQty: 50, unitPrice: 15 },
-    { minQty: 100, unitPrice: 12.5 },
-  ],
+  // Textiles — pricing par modèle (DEMO : t-shirt vierge à 10 € flat,
+  // calibrage des paliers dégressifs à venir).
+  "Textiles/CGTU01": [{ minQty: 1, unitPrice: 10 }],
+  "Textiles/K3025": [{ minQty: 1, unitPrice: 10 }],
+  "Textiles/NS300": [{ minQty: 1, unitPrice: 10 }],
+  "Textiles/Supplier": [{ minQty: 1, unitPrice: 10 }],
+};
+
+// ───────── Suppléments placement par modèle (tier-based) ─────────
+
+/**
+ * Suppléments par placement, dégressifs par palier de quantité, par pricingKey.
+ * Vide pendant la démo — on retombe sur les forfaits flat définis dans
+ * `pricing.ts` (5/5/10/5/5). Les paliers dégressifs reviendront au calibrage.
+ */
+export const PLACEMENT_SURCHARGE_TIERS: Record<
+  string,
+  Record<string, PricingTier[]>
+> = {};
+
+// Prix d'achat fournisseur (référence interne, pas affiché client).
+export const SUPPLIER_PURCHASE_PRICE: Record<string, number> = {
+  "Textiles/NS300": 4.05,
 };
 
 // ───────── Catalogue textile ─────────
@@ -175,19 +197,20 @@ const STD_SIZES: TextileSize[] = [
   { id: "M", label: "M", order: 2 },
   { id: "L", label: "L", order: 3 },
   { id: "XL", label: "XL", order: 4 },
-  { id: "XXL", label: "XXL", order: 5 },
+  { id: "2XL", label: "2XL", order: 5 },
   { id: "3XL", label: "3XL", order: 6 },
 ];
 
-const KID_SIZES: TextileSize[] = [
-  { id: "4A", label: "4A", order: 0 },
-  { id: "6A", label: "6A", order: 1 },
-  { id: "8A", label: "8A", order: 2 },
-  { id: "10A", label: "10A", order: 3 },
-  { id: "12A", label: "12A", order: 4 },
-  { id: "14A", label: "14A", order: 5 },
-];
+const KID_SIZES: TextileSize[] = STD_SIZES;
 
+/**
+ * Couleurs standard. Les champs `commercialName`, `manufacturerCode`, `pantone`
+ * sont laissés vides intentionnellement — ils seront renseignés via la base de
+ * données fabricant. Le PDF BAT affiche un avertissement explicite "à compléter"
+ * pour chaque champ manquant.
+ *
+ * `rgb` est dérivé automatiquement depuis `hex` au moment de la génération.
+ */
 const STD_COLORS: TextileColor[] = [
   { id: "white", label: "Blanc", hex: "#FFFFFF", swatchBorder: true },
   { id: "black", label: "Noir", hex: "#0F172A" },
@@ -199,6 +222,12 @@ const STD_COLORS: TextileColor[] = [
   { id: "sand", label: "Sable", hex: "#D6CFC4", swatchBorder: true },
 ];
 
+/**
+ * Catalogue textile. Les fiches techniques (brand, sku, composition, grammage…)
+ * sont des valeurs **provisoires** destinées à être remplacées par les données
+ * fabricant exactes. Lorsqu'un champ est absent ou égal à `undefined`, le PDF
+ * BAT affiche un avertissement "à compléter" pour ce champ.
+ */
 export const TEXTILE_MODELS: TextileModel[] = [
   {
     id: "CGTU01",
@@ -208,6 +237,10 @@ export const TEXTILE_MODELS: TextileModel[] = [
     colors: STD_COLORS,
     sizes: STD_SIZES,
     pricingKey: "Textiles/CGTU01",
+    fabricComposition: "100% coton bio",
+    fabricWeightGsm: 150,
+    fitType: "regular",
+    printTechniques: ["DTF", "Sérigraphie"],
   },
   {
     id: "CGTU01-F",
@@ -217,6 +250,10 @@ export const TEXTILE_MODELS: TextileModel[] = [
     colors: STD_COLORS,
     sizes: STD_SIZES.slice(0, 5),
     pricingKey: "Textiles/CGTU01",
+    fabricComposition: "100% coton bio",
+    fabricWeightGsm: 150,
+    fitType: "femme",
+    printTechniques: ["DTF", "Sérigraphie"],
   },
   {
     id: "CGTU01-E",
@@ -226,6 +263,10 @@ export const TEXTILE_MODELS: TextileModel[] = [
     colors: STD_COLORS,
     sizes: KID_SIZES,
     pricingKey: "Textiles/CGTU01",
+    fabricComposition: "100% coton bio",
+    fabricWeightGsm: 150,
+    fitType: "enfant",
+    printTechniques: ["DTF", "Sérigraphie"],
   },
   {
     id: "K3025",
@@ -235,6 +276,10 @@ export const TEXTILE_MODELS: TextileModel[] = [
     colors: STD_COLORS,
     sizes: STD_SIZES,
     pricingKey: "Textiles/K3025",
+    fabricComposition: "Jersey single 100% coton",
+    fabricWeightGsm: 180,
+    fitType: "regular",
+    printTechniques: ["DTF", "Sérigraphie", "Flex"],
   },
   {
     id: "K3025-F",
@@ -244,6 +289,10 @@ export const TEXTILE_MODELS: TextileModel[] = [
     colors: STD_COLORS,
     sizes: STD_SIZES.slice(0, 5),
     pricingKey: "Textiles/K3025",
+    fabricComposition: "Jersey single 100% coton",
+    fabricWeightGsm: 180,
+    fitType: "femme",
+    printTechniques: ["DTF", "Sérigraphie", "Flex"],
   },
   {
     id: "NS300",
@@ -253,6 +302,10 @@ export const TEXTILE_MODELS: TextileModel[] = [
     colors: STD_COLORS,
     sizes: STD_SIZES,
     pricingKey: "Textiles/NS300",
+    fabricComposition: "Coton peigné ringspun",
+    fabricWeightGsm: 210,
+    fitType: "regular",
+    printTechniques: ["DTF", "Sérigraphie", "Broderie", "Flex"],
   },
   {
     id: "NS300-F",
@@ -262,6 +315,10 @@ export const TEXTILE_MODELS: TextileModel[] = [
     colors: STD_COLORS,
     sizes: STD_SIZES.slice(0, 5),
     pricingKey: "Textiles/NS300",
+    fabricComposition: "Coton peigné ringspun",
+    fabricWeightGsm: 210,
+    fitType: "femme",
+    printTechniques: ["DTF", "Sérigraphie", "Broderie", "Flex"],
   },
 ];
 

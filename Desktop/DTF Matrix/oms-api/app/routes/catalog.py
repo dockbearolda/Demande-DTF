@@ -216,7 +216,14 @@ async def create_product(
     data = payload.model_dump()
     colors = data.pop("colors", [])
     sizes = data.pop("sizes", [])
-    p = Product(subfamily_id=subfamily_id, colors_json=colors, sizes_json=sizes, **data)
+    print_techniques = data.pop("print_techniques", [])
+    p = Product(
+        subfamily_id=subfamily_id,
+        colors_json=colors,
+        sizes_json=sizes,
+        print_techniques_json=print_techniques,
+        **data,
+    )
     db.add(p)
     await db.commit()
     await db.refresh(p)
@@ -235,6 +242,8 @@ async def update_product(
         p.colors_json = data.pop("colors")
     if "sizes" in data:
         p.sizes_json = data.pop("sizes")
+    if "print_techniques" in data:
+        p.print_techniques_json = data.pop("print_techniques")
     for k, v in data.items():
         setattr(p, k, v)
     await db.commit()

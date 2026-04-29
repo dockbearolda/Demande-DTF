@@ -1,0 +1,75 @@
+/* ============================================================
+   OMS Lundi Aprem — Typography
+   ------------------------------------------------------------
+   Six canonical text styles. Components MUST apply one of
+   these classes rather than restyling text inline.
+
+     .t-display   — hero / page title (Inter Tight)
+     .t-h1        — section title       (Inter Tight)
+     .t-h2        — subsection title    (Inter Tight)
+     .t-body      — default reading     (Inter)
+     .t-label     — small UI label      (Inter, uppercase)
+     .t-num       — tabular numbers     (JetBrains Mono)
+
+   All sizes/leadings reference the spacing scale visually
+   (4pt rhythm) but are expressed in px for precise type
+   metrics. Do not introduce new sizes ad-hoc — extend this
+   file if the design system needs a new role.
+   ============================================================ */
+
+.t-display {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-900);
+}
+
+.t-h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--ink-800);
+}
+
+.t-h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-800);
+}
+
+.t-body {
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-700);
+}
+
+.t-label {
+  font-family: var(--font-text);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.t-num {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  letter-spacing: 0;
+  color: var(--ink-800);
+}

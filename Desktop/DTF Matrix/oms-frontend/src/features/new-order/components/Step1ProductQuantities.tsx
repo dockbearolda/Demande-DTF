@@ -20,6 +20,8 @@ export interface Step1Size {
   id: string;
   label: string;
   order: number;
+  /** false = taille non disponible chez le fournisseur (cellule désactivée). */
+  available?: boolean;
 }
 
 export interface Step1Color {
@@ -192,10 +194,7 @@ export function Step1ColorSelector({
 }) {
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.08em] text-gray-500">
-          Couleurs
-        </h3>
+      <div className="flex items-baseline justify-end">
         <span className="text-xs text-gray-400 tabular-nums">
           {activeColors.length} / {activeColors.length + inactiveColors.length}
         </span>
@@ -417,11 +416,13 @@ export const Step1SizeQuantityGrid = memo(function Step1SizeQuantityGrid({
   colors,
   quantities,
   onChange,
+  hideTotals = false,
 }: {
   sizes: Step1Size[];
   colors: Step1Color[];
   quantities: Record<string, number>;
   onChange: (colorId: string, sizeId: string, qty: number) => void;
+  hideTotals?: boolean;
 }) {
   const refs = useRef<(HTMLInputElement | null)[][]>([]);
 
@@ -503,7 +504,7 @@ export const Step1SizeQuantityGrid = memo(function Step1SizeQuantityGrid({
           {sizes.map((sz) => (
             <col key={sz.id} />
           ))}
-          <col style={{ width: 88 }} />
+          {!hideTotals && <col style={{ width: 88 }} />}
         </colgroup>
 
         <thead>
@@ -523,12 +524,14 @@ export const Step1SizeQuantityGrid = memo(function Step1SizeQuantityGrid({
                 {sz.label}
               </th>
             ))}
-            <th
-              scope="col"
-              className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-700"
-            >
-              Total
-            </th>
+            {!hideTotals && (
+              <th
+                scope="col"
+                className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-700"
+              >
+                Total
+              </th>
+            )}
           </tr>
         </thead>
 
@@ -554,60 +557,82 @@ export const Step1SizeQuantityGrid = memo(function Step1SizeQuantityGrid({
                   </div>
                 </td>
                 {sizes.map((sz, ci) => {
+                  const unavailable = sz.available === false;
                   const v = get(color.id, sz.id);
                   return (
-                    <td key={sz.id} className="px-1 py-1.5">
-                      <QtyInput
-                        value={v}
-                        ariaLabel={`${displayName(color)} · ${sz.label}`}
-                        inputRef={(el) => {
-                          refs.current[ri][ci] = el;
-                        }}
-                        onChange={(n) => onChange(color.id, sz.id, n)}
-                        onKeyDown={(e) => handleKey(e, ri, ci)}
-                      />
+                    <td
+                      key={sz.id}
+                      className="px-1 py-1.5"
+                      style={
+                        unavailable
+                          ? {
+                              background:
+                                "repeating-linear-gradient(135deg, #F4F4F2 0 4px, rgba(74,98,116,0.04) 4px 5px)",
+                            }
+                          : undefined
+                      }
+                    >
+                      {unavailable ? (
+                        <div className="mx-auto flex h-9 w-full max-w-[104px] items-center justify-center rounded-md border border-transparent">
+                          <span className="sr-only">Taille indisponible</span>
+                        </div>
+                      ) : (
+                        <QtyInput
+                          value={v}
+                          ariaLabel={`${displayName(color)} · ${sz.label}`}
+                          inputRef={(el) => {
+                            refs.current[ri][ci] = el;
+                          }}
+                          onChange={(n) => onChange(color.id, sz.id, n)}
+                          onKeyDown={(e) => handleKey(e, ri, ci)}
+                        />
+                      )}
                     </td>
                   );
                 })}
-                <td className="px-4 py-2 text-right">
-                  <span
-                    className={[
-                      "font-mono text-sm tabular-nums",
-                      rowTotal > 0
-                        ? "font-semibold text-gray-900"
-                        : "font-medium text-gray-300",
-                    ].join(" ")}
-                  >
-                    {rowTotal}
-                  </span>
-                </td>
+                {!hideTotals && (
+                  <td className="px-4 py-2 text-right">
+                    <span
+                      className={[
+                        "font-mono text-sm tabular-nums",
+                        rowTotal > 0
+                          ? "font-semibold text-gray-900"
+                          : "font-medium text-gray-300",
+                      ].join(" ")}
+                    >
+                      {rowTotal}
+                    </span>
+                  </td>
+                )}
               </tr>
             );
           })}
         </tbody>
 
-        <tfoot>
-          <tr className="border-t-2 border-gray-300 bg-gray-50">
-            <td className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-700">
-              Total
-            </td>
-            {colTotals.map((t, i) => (
-              <td
-                key={i}
-                className="px-1 py-3 text-center font-mono text-sm tabular-nums"
-              >
-                {t > 0 ? (
-                  <span className="font-semibold text-gray-900">{t}</span>
-                ) : (
-                  <span className="font-medium text-gray-300">0</span>
-                )}
+        {!hideTotals && (
+          <tfoot>
+            <tr className="border-t-2 border-gray-300 bg-gray-50">
+              <td className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-700">
+                Total
               </td>
-            ))}
-            <td className="px-4 py-3 text-right font-mono text-base font-semibold tabular-nums text-gray-900">
-              {grandTotal}
-            </td>
-          </tr>
-        </tfoot>
+              {colTotals.map((t, i) => (
+                <td
+                  key={i}
+                  className="px-1 py-3 text-center font-mono text-sm tabular-nums"
+                >
+                  {t > 0 ? (
+                    <span className="font-semibold text-gray-900">{t}</span>
+                  ) : (
+                    <span className="font-medium text-gray-300">0</span>
+                  )}
+                </td>
+              ))}
+              <td className="px-4 py-3 text-right font-mono text-base font-semibold tabular-nums text-gray-900">
+                {grandTotal}
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );

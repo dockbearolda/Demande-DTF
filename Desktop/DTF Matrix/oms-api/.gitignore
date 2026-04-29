@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
+.coverage
+*.sqlite
+*.db
+.DS_Store
+
+# Données runtime — drafts utilisateur, mockups fournisseur (symlink)
+storage/
+
+# Imports clients — contiennent de la PII (noms, tel, email)
+clients_import.csv
+data/

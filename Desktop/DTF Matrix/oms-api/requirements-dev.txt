@@ -1,0 +1,9 @@
+# Test/lint dependencies — pulled on top of the production requirements.
+# Production deployments install only requirements.txt; CI installs this file.
+-r requirements.txt
+pytest==8.3.3
+pytest-asyncio==0.24.0
+ruff>=0.8.0
+# SQLite async driver — only used by tests and the CI smoke server.
+# Production runs on Postgres via asyncpg.
+aiosqlite==0.20.0

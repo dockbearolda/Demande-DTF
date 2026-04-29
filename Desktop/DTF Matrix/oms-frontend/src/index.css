@@ -1,39 +1,22 @@
+/* Canonical design tokens (palette, spacing, radii, shadows, type families).
+   Source of truth for the entire visual system. Edit here, not in components. */
+@import "./styles/design-tokens.css";
+
+/* Six canonical text styles (.t-display, .t-h1, .t-h2, .t-body, .t-label, .t-num). */
+@import "./styles/typography.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ============================================================
    OLDA Design System — Planning OLDA
-   Quiet-luxury duck-blue + sage tokens. Native desktop armor.
+   Workflow-scoped tokens that don't belong in the canonical
+   design system (status badge palette, new-order panel chrome).
+   Anything else has migrated to src/styles/design-tokens.css.
    ============================================================ */
 
 :root {
-  /* Brand — duck-blue primary */
-  --brand-duck-500: #4A6274;
-  --brand-duck-400: #556876;
-  --brand-duck-300: #6B8191;
-  --brand-duck-200: #8BA0AF;
-
-  /* Brand — sage / linen / paper */
-  --brand-sage: #CDD4CD;
-  --brand-sage-100: #dce3e8;
-  --brand-sage-50: #e6ecef;
-  --brand-linen: #EBEAE8;
-  --brand-paper: #f4f4f2;
-  --brand-paper-hi: #f5f7f8;
-
-  /* Foreground ramp */
-  --fg-1: #202930;
-  --fg-2: #2f3b45;
-  --fg-3: #556876;
-  --fg-4: #8BA0AF;
-
-  /* Semantic state */
-  --color-urgent: #f59e0b;
-  --color-urgent-soft: #fef3c7;
-  --color-urgent-ink: #92400e;
-  --color-danger: #dc2626;
-
   /* Status badge backgrounds (OLDA workflow tokens) */
   --status-demande: #EDEEF0;    /* Brouillon */
   --status-devis: #D7E4EB;      /* Confirmée */
@@ -42,31 +25,12 @@
   --status-production: #FEF3C7; /* En production */
   --status-paye: #6B8191;       /* Expédiée */
 
-  /* Text on filled (dark) badge backgrounds */
-  --fg-on-primary: #FFFFFF;
-
-  /* Radii */
-  --r-1: 6px;
-  --r-2: 8px;
-  --r-3: 10px;
-  --r-4: 12px;
-
-  /* Elevation */
-  --shadow-1: 0 1px 2px rgba(74, 98, 116, 0.06), 0 4px 12px rgba(74, 98, 116, 0.06);
-
-  /* Motion */
-  --dur-base: 220ms;
-  --ease-snap: cubic-bezier(0.32, 0.72, 0, 1);
-
-  /* Focus ring */
-  --focus-ring: 0 0 0 3px rgba(107, 129, 145, 0.28);
-
-  /* New-order brand tone (selected state on cards/CTAs) */
-  --no-brand-bg: #eaeff3;       /* very light duck for selected card bg */
-  --no-brand-bg-soft: #f3f6f8;  /* hover tint */
-  --no-brand-border: var(--brand-duck-500);
-  --no-brand-text: var(--brand-duck-500);
-  --no-brand-text-strong: #33454f;
+  /* New-order panel chrome (selected state on cards/CTAs) */
+  --no-brand-bg:       var(--accent-50);
+  --no-brand-bg-soft:  #f3f6f8;
+  --no-brand-border:   var(--accent-500);
+  --no-brand-text:     var(--accent-500);
+  --no-brand-text-strong: var(--accent-700);
 }
 
 /* ---------- Base reset: native executable armor ---------- */
@@ -75,19 +39,35 @@ html,
 body,
 #root {
   height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 html,
 body {
   cursor: default;
   touch-action: pan-x pan-y;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-    system-ui, sans-serif;
+  font-family: var(--font-text);
   font-variant-numeric: tabular-nums;
   background: var(--brand-paper);
   color: var(--fg-1);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Single in-app scroll surface: only the main content scroller bounces.
+   Marker class applied by Layout's <main>. */
+.app-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-scroll { scroll-behavior: auto; }
 }
 
 /* No text selection on chrome / UI scaffolding — only in inputs & rich text */
@@ -138,6 +118,13 @@ th {
   transition: box-shadow var(--dur-base) var(--ease-snap);
 }
 
+/* WCAG 2.4.7: explicit outline ring on qty matrix cells (overrides global :focus-visible) */
+.qty-cell-input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
 /* ---------- Button press: tactile scale(0.97) @ 80ms ---------- */
 
 button,
@@ -169,6 +156,25 @@ button:disabled,
 [type="reset"]:disabled {
   transform: none;
   cursor: not-allowed;
+}
+
+/* ---------- QuoteStickyFooter slide-up ---------- */
+
+@keyframes quote-footer-slidein {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.quote-footer-enter {
+  animation: quote-footer-slidein 220ms var(--ease-snap) both;
+  will-change: transform, opacity;
+}
+
+/* ---------- Quote recap (sidebar) — fade-in + translateY(-2px) ---------- */
+
+@keyframes quote-recap-enter {
+  from { transform: translateY(2px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 
 /* ---------- Custom scrollbars — 10px, quiet ---------- */
@@ -284,6 +290,15 @@ tbody[data-any-selected="true"] .order-row__check input[type="checkbox"] {
 
 /* ---------- New-order micro-animations ---------- */
 
+@keyframes pricePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); color: oklch(45% 0.2 145); }
+}
+
+.animate-price-pulse {
+  animation: pricePulse 400ms ease-out both;
+}
+
 @keyframes olda-pulse-once {
   0%   { opacity: 1; transform: scale(1); }
   35%  { opacity: 0.6; transform: scale(1.06); }
@@ -328,6 +343,62 @@ tbody[data-any-selected="true"] .order-row__check input[type="checkbox"] {
   -moz-appearance: textfield;
 }
 
+/* Sidebar cross-fade — opacity 0→1 + translateY 8px→0 on 200ms ease-out.
+   Applied to the populated recap card when it mounts after a category
+   is picked, so it appears in the slot the skeleton was holding. */
+@keyframes no-sidebar-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.no-sidebar-fade {
+  animation: no-sidebar-fade 200ms ease-out both;
+}
+
+/* BAT block reveal — max-height + opacity, 250ms ease-out on enter,
+   200ms ease-in on exit. Wrapper uses overflow:hidden to avoid layout shift. */
+.bat-block-wrapper {
+  overflow: hidden;
+  transition:
+    max-height 250ms ease-out,
+    opacity 250ms ease-out;
+  max-height: 240px;
+  opacity: 1;
+}
+
+.bat-block-wrapper[data-collapsed="true"] {
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 200ms ease-in,
+    opacity 200ms ease-in;
+}
+
+.no-bat-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-3);
+  background: oklch(97% 0.01 255);
+  color: var(--fg-3);
+  font-size: 13px;
+  line-height: 1.45;
+  animation: no-sidebar-fade 220ms ease-out both;
+}
+
+.no-bat-notice .no-bat-check {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #d6e1da;
+  color: #3c5a4a;
+}
+
 /* Kbd chip */
 .olda-kbd {
   display: inline-flex;
@@ -341,7 +412,7 @@ tbody[data-any-selected="true"] .order-row__check input[type="checkbox"] {
   border-radius: 4px;
   background: #fff;
   color: var(--fg-3);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   font-weight: 600;
   line-height: 1;
