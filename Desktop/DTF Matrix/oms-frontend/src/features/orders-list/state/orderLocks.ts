@@ -25,6 +25,7 @@ const NAMES: Record<AssignedTo, string> = {
   L: "Loïc",
   C: "Charlie",
   M: "Mélina",
+  A: "Autre",
 };
 
 const STORAGE_KEY = "orders-list:locks";

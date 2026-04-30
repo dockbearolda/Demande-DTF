@@ -209,7 +209,7 @@ export function DevisPage() {
           <div
             style={{ fontSize: 12.5, color: "var(--fg-3)", marginTop: 4 }}
           >
-            Crée ton premier devis depuis « Flash Devis (v2) ».
+            Crée ton premier devis depuis « Flash Devis ».
           </div>
         </div>
       ) : (
