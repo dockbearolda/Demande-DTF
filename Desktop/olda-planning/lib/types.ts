@@ -35,6 +35,7 @@ export interface OrderLine {
   family:   Family;   // single sector per line
   product:  string;
   quantity: string;
+  note?:    string;   // per-line special instructions
   onHold?:  boolean;  // UI-only flag — line is parked, not submitted
 }
 
@@ -81,21 +82,22 @@ export interface PlanningItem {
 }
 
 export const STAGES: { [key in Stage]: { label: string; color: string } } = {
-  demande:     { label: 'Demande',       color: 'var(--status-demande)'   },
-  devis:       { label: 'Devis en cours', color: 'var(--status-devis)'     },
-  accepted:    { label: 'Devis accepté', color: 'var(--status-accepted)'  },
-  production:  { label: 'Production',    color: 'var(--status-production)' },
-  facturation: { label: 'Facturation',   color: 'var(--status-facture)'   },
-  archived:    { label: 'Archivé',       color: 'var(--status-archived)'  },
+  demande:     { label: 'Demande',        color: 'var(--status-demande)'    },
+  devis:       { label: 'Devis en cours', color: 'var(--status-devis)'      },
+  accepted:    { label: 'Devis accepté',  color: 'var(--status-accepted)'   },
+  production:  { label: 'Production',     color: 'var(--status-production)' },
+  facturation: { label: 'Facturation',    color: 'var(--status-facture)'    },
+  archived:    { label: 'Archivé',        color: 'var(--status-archived)'   },
 };
 
 export const FAMILIES: Family[] = ['DTF', 'PRESSAGE', 'UV', 'TROTEC', 'GOODIES', 'AUTRES', 'TEXTILES'];
 
 // ── Operators — shared config for avatars, filters and assignment ───────────
+// Monochrome quiet-luxury scheme: slate-800 / slate-500 / slate-300
 export const OPERATORS = [
-  { key: 'loic',    initial: 'L', label: 'Loïc',   bg: '#1e293b', color: '#f8fafc' },
-  { key: 'charlie', initial: 'C', label: 'Charlie', bg: '#64748b', color: '#ffffff' },
-  { key: 'melina',  initial: 'M', label: 'Mélina',  bg: '#cbd5e1', color: '#1e293b' },
+  { key: 'loic',    initial: 'L', label: 'Loïc',    bg: '#2F3B45', color: '#f5f7f8' }, // ink-2
+  { key: 'charlie', initial: 'C', label: 'Charlie', bg: '#6B8191', color: '#f5f7f8' }, // accent
+  { key: 'melina',  initial: 'M', label: 'Mélina',  bg: '#CDD4CD', color: '#202930' }, // sage
 ] as const;
 
 export type OperatorKey = typeof OPERATORS[number]['key'];
@@ -103,3 +105,68 @@ export type OperatorKey = typeof OPERATORS[number]['key'];
 // ── Convenience helper — get primary sector from an item ───────────────────
 export const primarySector = (item: PlanningItem): Family =>
   item.sectors?.[0] ?? 'AUTRES';
+
+// ── Client Journal — internal team notes with alert tagging ───────────────
+export type NoteAlertTag = 'malhonnete' | 'complexe' | 'vip';
+
+export interface ClientNote {
+  id: string;
+  /** clientName.trim().toLowerCase() — matches analytics key */
+  clientKey: string;
+  content: string;
+  alertTag: NoteAlertTag | null;
+  authorKey: OperatorKey | '';
+  createdAt: string; // ISO
+}
+
+// ── CRM Extension ──────────────────────────────────────────────────────────
+
+export type CRMStatus = 'prospect' | 'actif' | 'vip' | 'inactif' | 'bloque';
+export type ContactPreference = 'telephone' | 'email' | 'sms' | 'presentiel';
+export type InteractionType = 'note' | 'appel' | 'email' | 'reunion' | 'devis' | 'fichier' | 'alerte';
+export type FileCategory = 'facture' | 'bon_commande' | 'contrat' | 'maquette' | 'image' | 'autre';
+
+export interface ClientProfile {
+  clientKey: string;
+  address?: string;
+  website?: string;
+  siret?: string;
+  /** Préférences comportementales — ce que le client aime */
+  likes: string;
+  /** Préférences comportementales — ce que le client n'aime pas */
+  dislikes: string;
+  /** Notes de profil libres */
+  profileNotes: string;
+  customTags: string[];
+  crmStatus: CRMStatus;
+  preferredContact: ContactPreference;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientInteraction {
+  id: string;
+  clientKey: string;
+  type: InteractionType;
+  title: string;
+  content: string;
+  authorKey: OperatorKey | '';
+  relatedOrderId?: string;
+  relatedFileId?: string;
+  createdAt: string;
+}
+
+export interface ClientFile {
+  id: string;
+  clientKey: string;
+  name: string;
+  originalName: string;
+  category: FileCategory;
+  mimeType: string;
+  size: number;
+  /** Path relative to the workspace planning-olda directory */
+  relativePath: string;
+  uploadedBy: OperatorKey | '';
+  uploadedAt: string;
+  description?: string;
+}

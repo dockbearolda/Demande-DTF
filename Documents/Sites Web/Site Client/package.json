@@ -1,0 +1,42 @@
+{
+  "name": "site-client",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start -p ${PORT:-3000} -H 0.0.0.0",
+    "lint": "eslint",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "jspdf": "^4.2.1",
+    "next": "16.2.1",
+    "next-auth": "^5.0.0-beta.30",
+    "nodemailer": "^8.0.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "resend": "^6.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/nodemailer": "^7.0.11",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.1",
+    "prisma": "^5.22.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}
