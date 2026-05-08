@@ -347,7 +347,7 @@
   position: relative;
   aspect-ratio: 4 / 5;
   overflow: hidden;
-  background: var(--m-ivory);
+  background: #ffffff;
 }
 
 .olda-modeles__card-img {
@@ -363,23 +363,6 @@
 
 .olda-modeles__card:hover .olda-modeles__card-img {
   transform: scale(1);
-}
-
-.olda-modeles__card-pill {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--m-ink-60);
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(246, 244, 239, 0.85);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid var(--m-ink-08);
-  font-weight: 500;
 }
 
 .olda-modeles__card-soldout {
@@ -879,12 +862,7 @@
     font-size: 16px;
   }
 
-  .olda-modeles__card-pill {
-    font-size: 9px;
-    padding: 3px 7px;
-  }
-
-  /* Sur mobile : pas de hover, donc le CTA reste révélé en sticky bottom-sheet */
+/* Sur mobile : pas de hover, donc le CTA reste révélé en sticky bottom-sheet */
   .olda-modeles__card-cta {
     display: none;
   }
